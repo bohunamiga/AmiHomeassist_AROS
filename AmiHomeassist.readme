@@ -1,0 +1,130 @@
+Short:        Home Assistant dashboards for MUI
+Kurz:         Home Assistant auf dem Amiga, mit MUI
+Author:       radi777
+Uploader:     thomas.radeck gmail com (radi777, see note below)
+Type:         comm/tcp
+Version:      0.5
+Architecture: m68k-amigaos
+Requires:     dev/mui/MCC_NList-0.128.lha
+Distribution: Aminet
+
+
+AmiHomeassist - your smart home from a real Amiga
+=================================================
+
+Lights, sockets, blinds and sensors from Home Assistant, arranged on
+dashboards of your own. A sidebar on the left with an icon per page,
+the contents of the selected page on the right in framed groups. One
+click on the switch flips the device. States are polled, so changes
+made elsewhere show up by themselves.
+
+You decide what appears and how it looks. A large Home Assistant setup
+easily has 900 entities and you want a dozen or two. So there is a
+picker with a suggestion you can overrule, and an editor where pages,
+groups and devices are put together freely.
+
+WIDGET KINDS
+
+  Switch      light and switch - the toggle you click
+  Lamp        binary_sensor - window open or closed
+  Value       sensor with its unit
+  Gauge       sensor with a fixed range, per cent or watts
+  Blind       cover - up, stop, down, and the position
+  Text        a caption
+
+When you add a device the program suggests a kind, from its domain and
+device class. The editor lets you change it.
+
+EASY ON THE WIRE
+
+The full catalogue is fetched once. After that only the states of the
+devices actually on screen are polled. In a setup with 941 entities
+that is 1.4 KB instead of 55 KB per poll - 98 per cent less. On an
+A500 over a slow link that is the difference between usable and not.
+Memory grows on demand instead of sitting in fixed tables.
+
+REQUIREMENTS
+
+  AmigaOS 2.0 or newer, 68020 or better, no FPU needed
+  MUI 3.8 or newer
+  NList.mcc and NListview.mcc from dev/mui/MCC_NList
+  a TCP/IP stack offering bsdsocket.library
+  Home Assistant reachable over plain http - https is not supported
+  a long-lived access token from Home Assistant
+
+A shell version is included that works without MUI: list and switch
+devices, for scripts.
+
+Full source is included, MIT licence. Built with SAS/C 6.59 on the
+Amiga itself, not cross-compiled.
+
+Icons are Material Design Icons (Apache 2.0). The house logo belongs to
+the Home Assistant project, which is separate from and unaffiliated
+with this program.
+
+Tested on an A500 with PiStorm (Emu68), OS 3.2.3, MUI 3.8.
+
+Note on the uploader address: it is written without the @ and the dot
+to keep address harvesters out. Put an @ before "gmail" and a dot in
+front of "com" and you have it.
+
+
+AmiHomeassist - dein Smarthome vom Amiga aus
+============================================
+
+Lampen, Steckdosen, Rollaeden und Sensoren aus Home Assistant, geordnet
+in eigenen Dashboards. Links eine Seitenleiste mit Symbolen, rechts der
+Inhalt der gewaehlten Seite in umrandeten Gruppen. Ein Klick auf den
+Schalter legt das Geraet um; der Zustand wird zyklisch nachgefuehrt, so
+dass Aenderungen von aussen von selbst erscheinen.
+
+Welche Geraete auftauchen und wie sie aussehen, bestimmst du. Eine
+grosse Home-Assistant-Installation hat schnell 900 Entitaeten, davon
+willst du ein bis zwei Dutzend. Also gibt es eine Auswahl mit einem
+Vorschlag zum Ueberstimmen und einen Editor, in dem Seiten, Gruppen und
+Geraete frei zusammengestellt werden.
+
+DARSTELLUNGSARTEN
+
+  Schalter    light und switch
+  Laempchen   binary_sensor - Fenster offen oder zu
+  Zahl        sensor mit Einheit
+  Balken      sensor mit festem Bereich, etwa Prozent oder Watt
+  Rollladen   cover - Auf, Stop, Zu und die Stellung
+  Text        eine Zwischenueberschrift
+
+Beim Hinzufuegen schlaegt das Programm eine Art vor, aus Domain und
+Geraeteklasse; im Editor laesst sie sich aendern.
+
+SPARSAM AM NETZ
+
+Den vollen Katalog holt das Programm nur einmal. Im Sekundentakt kommen
+danach bloss die Zustaende der Geraete, die tatsaechlich angezeigt
+werden. In einer Anlage mit 941 Entitaeten sind das 1,4 KB statt 55 KB
+je Abfrage - 98 Prozent weniger. Auf einem A500 an einer langsamen
+Leitung entscheidet das darueber, ob das Programm benutzbar ist. Auch
+der Speicher waechst nach Bedarf, statt feste Tabellen zu belegen.
+
+VORAUSSETZUNGEN
+
+  AmigaOS 2.0 oder neuer, 68020 oder besser, keine FPU noetig
+  MUI 3.8 oder neuer
+  NList.mcc und NListview.mcc aus dev/mui/MCC_NList
+  ein TCP/IP-Stack mit bsdsocket.library
+  Home Assistant, ueber http erreichbar - https geht nicht
+  ein Long-Lived Access Token aus Home Assistant
+
+Eine Shell-Fassung liegt bei, die ohne MUI auskommt.
+
+Der Quelltext liegt vollstaendig bei, MIT-Lizenz. Uebersetzt wird mit
+SAS/C 6.59 auf dem Amiga selbst, nicht cross.
+
+Die Symbole stammen aus den Material Design Icons (Apache 2.0). Das
+Haus-Logo gehoert dem Home-Assistant-Projekt; Home Assistant ist ein
+eigenstaendiges Projekt und hat mit diesem Programm nichts zu tun.
+
+Getestet auf A500 mit PiStorm (Emu68), OS 3.2.3, MUI 3.8.
+
+Hinweis zur Uploader-Adresse: sie steht ohne @ und ohne Punkt da, damit
+Adresssammler nichts davon haben. Ein @ vor "gmail", ein Punkt vor
+"com", fertig.

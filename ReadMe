@@ -1,0 +1,69 @@
+AmiHomeassist - Quelltext
+=========================
+
+Uebersetzt mit SAS/C 6.59 auf dem Amiga selbst, nicht cross.
+
+    Execute mk
+
+Das Bauskript erwartet SAS/C unter Stuff:Developer/SASC und baut in
+RAM:AmiHomeassist. Pfade oben im Skript anpassen.
+
+Drei Dinge am Bauskript sind nicht optional:
+
+  LIB:scnb.lib statt LIB:sc.lib.  sc.lib ist die basisrelative Fassung
+  und setzt ein gueltiges A4 voraus; mit DATA=FARONLY richtet der
+  Compiler A4 nicht mehr ein. Folge: das erste malloc() haengt das
+  Programm auf, ohne Absturz und ohne Meldung.
+
+  net.lib wird NICHT gelinkt.  Zusammen mit dem eigenen
+  OpenLibrary("bsdsocket.library") stuerzt das Programm sofort ab
+  (Exception 4, PC FFFFFEDA - ein Library-Aufruf mit leerer Basis).
+
+  DATA=FARONLY, weil einzelne Objekte ueber 64 KB gross sind.
+
+Weil IDIR=SASC:netinclude/ im Suchpfad vor SAS/Cs eigenem include:
+steht, verdeckt das AmiTCP-SDK dessen proto/dos.h. Die .c-Dateien
+deklarieren DOSBase deshalb selbst.
+
+
+DIE DATEIEN
+
+  amiha.c/.h     Kern: Einstellungen, HTTP ueber bsdsocket, die beiden
+                 Abfragen an Home Assistant, Zeichensatz, Filter
+  dash.c/.h      Dashboards: Datenmodell, Vorbelegung, Datei
+  edit.c/.h      der Editor
+  gui.c          die MUI-Oberflaeche
+  cli.c          die Shell-Fassung
+  icons.c        die gezeichneten Schalter und Sinnbilder
+  icons_mdi.c    die Raumsymbole
+  logo.c         das Logo
+  mk             Bauskript
+
+  mui/           die Header der NList-Klassen. Gehoeren nicht zu diesem
+                 Programm, liegen aber bei, damit es ohne Suchen baut.
+
+Die drei .c-Dateien mit Bilddaten sind erzeugt, nicht getippt:
+
+  icons.py       zeichnet Schalter und Sinnbilder aus ASCII-Vorlagen
+  mdi.py         holt Material-Design-Icons und rechnet sie um
+  appicon.py     macht aus dem Logo das Programmsymbol und logo.c.
+                 Das Logo selbst liegt nicht bei, es gehoert dem
+                 Home-Assistant-Projekt - logo.c ist aber fertig dabei,
+                 zum Uebersetzen braucht man es also nicht.
+
+Die drei Skripte laufen auf einem Rechner mit Python und Pillow, nicht
+auf dem Amiga. Fuer das Uebersetzen braucht man sie nicht.
+
+
+WIE DIE RAEUME HEREINKOMMEN
+
+Die REST-Schnittstelle von Home Assistant liefert keine Raumzuordnung.
+Statt die WebSocket-Schnittstelle nachzubauen, schickt das Programm ein
+Jinja-Template an /api/template und laesst Home Assistant die Zuordnung
+selbst aufloesen. Zurueck kommen Zeilen der Form
+
+    light.tisch|Tisch|Wohnzimmer|off|
+
+Damit braucht der Amiga weder WebSocket noch JSON-Parser. Dieselbe
+Technik traegt den Sparbetrieb: die zweite Abfrage nennt nur die IDs
+der angezeigten Geraete und bekommt nur deren Zustaende.

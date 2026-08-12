@@ -1,0 +1,36 @@
+AmiHomeassist - was sich geaendert hat
+=====================================
+
+0.5   11.08.2026
+
+  Seitenleiste statt flacher Liste. Links die Dashboards mit Symbol,
+  rechts ihr Inhalt in umrandeten Gruppen.
+
+  Editor. Seiten, Gruppen und Geraete selbst zusammenstellen,
+  umbenennen, umsortieren. Man ist nicht mehr auf eine Seite je Raum
+  festgelegt.
+
+  Mehr als Lampen und Steckdosen: Sensoren, Fenster- und Tuerkontakte
+  und Rollaeden. Sechs Darstellungsarten - Schalter, Laempchen, Zahl,
+  Balken, Rollladen, Text -, je Geraet frei waehlbar.
+
+  Zwei getrennte Abfragen. Den vollen Katalog holt das Programm nur
+  einmal, im Sekundentakt kommen bloss die Zustaende der angezeigten
+  Geraete. In einer Anlage mit 941 Entitaeten sind das 1,4 KB statt
+  55 KB - 98 Prozent weniger je Abfrage. Auf einem A500 an einer
+  langsamen Leitung ist das der Unterschied.
+
+  36 Symbole aus dem Material-Design-Satz, im Editor mit Vorschau.
+
+  Das Home-Assistant-Logo als Programmsymbol und oben in der
+  Seitenleiste.
+
+  Speicher waechst nach Bedarf. Die festen Tabellen fuer 512 Geraete
+  sind raus; sie belegten 128 KB und waren fuer grosse Anlagen
+  trotzdem zu klein.
+
+
+0.3   10.08.2026
+
+  Erste Veroeffentlichung. Geraete nach Raum sortiert anzeigen und
+  schalten, auswaehlen was uebernommen wird, zyklisches Aktualisieren.
