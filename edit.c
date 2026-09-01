@@ -24,6 +24,7 @@ typedef ULONG IPTR;
 #include "mui/NListview_mcc.h"
 
 #include "amiha.h"
+#include "amiloc.h"
 #include "dash.h"
 #include "edit.h"
 #include "icons.h"
@@ -83,20 +84,50 @@ static int  g_pickcount = 0;
 /* Das abschliessende NULL ist Pflicht: MUIs Cycle-Gadget liest die Liste,
  * bis es eine NULL findet. Ohne die laeuft es ueber das Feld hinaus - und
  * weigert sich dann irgendwann, das Fenster zu oeffnen. */
-static const char *KIND_TEXT[WK_COUNT + 1] = {
-    "Schalter", "Laempchen", "Zahl", "Balken", "Rollladen", "Text", NULL
+#define ICON_TEXT_COUNT 36
+
+/* Beide Listen werden zur Laufzeit gefuellt, weil GetStr() kein
+ * konstanter Ausdruck ist. MUIO_Cycle merkt sich nur den Zeiger auf das
+ * Feld - es muss also statisch sein und darf nicht auf dem Stapel liegen.
+ * locale_lists_init() wird einmal vor dem Aufbau des Fensters gerufen. */
+static const char *KIND_TEXT[WK_COUNT + 1];
+static const char *ICON_TEXT[ICON_TEXT_COUNT + 1];
+
+static const short KIND_MSG[WK_COUNT] = {
+    MSG_KIND_TOGGLE, MSG_KIND_LAMP, MSG_KIND_VALUE,
+    MSG_KIND_GAUGE,  MSG_KIND_COVER, MSG_KIND_TEXT
 };
 
 /* Muss zur Reihenfolge der Liste ICONS in mdi.py passen. */
-static const char *ICON_TEXT[] = {
-    "Buero", "Bad", "Dachboden", "Garage", "Garten", "Keller", "Kueche",
-    "Schlafzimmer", "Toilette", "Treppe", "Waschkueche", "Wohnzimmer",
-    "Ohne Raum", "Haus", "Uebersicht", "Energie", "Solar", "Batterie",
-    "Temperatur", "Feuchte", "Wetter", "Licht", "Steckdose", "Fenster",
-    "Tuer", "Schloss", "Sicherheit", "Auto", "Fernsehen", "Musik",
-    "Netzwerk", "Rollladen", "Luefter", "Zeit", "Werkzeug", "Drucker",
-    NULL
+static const short ICON_MSG[ICON_TEXT_COUNT] = {
+    MSG_ICON_OFFICE,   MSG_ICON_BATH,      MSG_ICON_ATTIC,
+    MSG_ICON_GARAGE,   MSG_ICON_GARDEN,    MSG_ICON_CELLAR,
+    MSG_ICON_KITCHEN,  MSG_ICON_BEDROOM,   MSG_ICON_TOILET,
+    MSG_ICON_STAIRS,   MSG_ICON_LAUNDRY,   MSG_ICON_LIVING,
+    MSG_ICON_NOAREA,   MSG_ICON_HOUSE,     MSG_ICON_OVERVIEW,
+    MSG_ICON_ENERGY,   MSG_ICON_SOLAR,     MSG_ICON_BATTERY,
+    MSG_ICON_TEMPERATURE, MSG_ICON_HUMIDITY, MSG_ICON_WEATHER,
+    MSG_ICON_LIGHT,    MSG_ICON_SOCKET,    MSG_ICON_WINDOW,
+    MSG_ICON_DOOR,     MSG_ICON_LOCK,      MSG_ICON_SECURITY,
+    MSG_ICON_CAR,      MSG_ICON_TV,        MSG_ICON_MUSIC,
+    MSG_ICON_NETWORK,  MSG_ICON_BLIND,     MSG_ICON_FAN,
+    MSG_ICON_TIME,     MSG_ICON_TOOL,      MSG_ICON_PRINTER
 };
+
+static void locale_lists_init(void)
+{
+    int i;
+
+    for (i = 0; i < WK_COUNT; i++) {
+        KIND_TEXT[i] = GetStr(KIND_MSG[i]);
+    }
+    KIND_TEXT[WK_COUNT] = NULL;      /* MUIO_Cycle liest bis zur NULL */
+
+    for (i = 0; i < ICON_TEXT_COUNT; i++) {
+        ICON_TEXT[i] = GetStr(ICON_MSG[i]);
+    }
+    ICON_TEXT[ICON_TEXT_COUNT] = NULL;
+}
 
 /* ------------------------------------------------------------------ */
 
@@ -297,7 +328,7 @@ static BOOL picker_add(void)
         return FALSE;
     }
     if (g_d->p[pi].count == 0) {
-        if (!page_add_group(&g_d->p[pi], "Geraete")) {
+        if (!page_add_group(&g_d->p[pi], GetStr(MSG_ED_DEVICES))) {
             return FALSE;
         }
     }
@@ -439,8 +470,12 @@ Object *editor_build(Object *app, struct Dash *d, struct Catalog *c)
     g_d = d;
     g_c = c;
 
+    /* Muss vor dem Fensteraufbau stehen: MUIO_Cycle merkt sich nur den
+     * Zeiger auf das Beschriftungsfeld, liest es aber erst beim Zeichnen. */
+    locale_lists_init();
+
     g_win = MUI_NewObject(MUIC_Window,
-        MUIA_Window_Title,  "Dashboards bearbeiten",
+        MUIA_Window_Title,  (char *)GetStr(MSG_ED_TITLE),
         MUIA_Window_ID,     MAKE_ID('A','H','A','4'),
         MUIA_Window_Width,  MUIV_Window_Width_Visible(60),
         MUIA_Window_Height, MUIV_Window_Height_Visible(60),
@@ -452,7 +487,7 @@ Object *editor_build(Object *app, struct Dash *d, struct Catalog *c)
                 MUIA_Group_Child, MUI_NewObject(MUIC_Group,
                     MUIA_HorizWeight, 35,
                     MUIA_Group_Child, MUI_NewObject(MUIC_Text,
-                        MUIA_Text_Contents, "\33cSeiten", TAG_DONE),
+                        MUIA_Text_Contents, (char *)GetStr(MSG_ED_PAGES), TAG_DONE),
                     MUIA_Group_Child, MUI_NewObject(MUIC_NListview,
                         MUIA_NListview_NList, g_pages =
                             MUI_NewObject(MUIC_NList,
@@ -461,13 +496,13 @@ Object *editor_build(Object *app, struct Dash *d, struct Catalog *c)
                     MUIA_Group_Child, MUI_NewObject(MUIC_Group,
                         MUIA_Group_Horiz, TRUE,
                         MUIA_Group_Child, b_pnew =
-                            MUI_MakeObject(MUIO_Button, "Neu"),
+                            MUI_MakeObject(MUIO_Button, (char *)GetStr(MSG_ED_NEW)),
                         MUIA_Group_Child, b_pdel =
-                            MUI_MakeObject(MUIO_Button, "Weg"),
+                            MUI_MakeObject(MUIO_Button, (char *)GetStr(MSG_ED_REMOVE)),
                         MUIA_Group_Child, b_pup =
-                            MUI_MakeObject(MUIO_Button, "Hoch"),
+                            MUI_MakeObject(MUIO_Button, (char *)GetStr(MSG_ED_UP)),
                         MUIA_Group_Child, b_pdown =
-                            MUI_MakeObject(MUIO_Button, "Runter"),
+                            MUI_MakeObject(MUIO_Button, (char *)GetStr(MSG_ED_DOWN)),
                         TAG_DONE),
                     TAG_DONE),
 
@@ -476,7 +511,7 @@ Object *editor_build(Object *app, struct Dash *d, struct Catalog *c)
                 MUIA_Group_Child, MUI_NewObject(MUIC_Group,
                     MUIA_HorizWeight, 65,
                     MUIA_Group_Child, MUI_NewObject(MUIC_Text,
-                        MUIA_Text_Contents, "\33cInhalt der Seite", TAG_DONE),
+                        MUIA_Text_Contents, (char *)GetStr(MSG_ED_CONTENT), TAG_DONE),
                     MUIA_Group_Child, MUI_NewObject(MUIC_NListview,
                         MUIA_NListview_NList, g_rows =
                             MUI_NewObject(MUIC_NList,
@@ -485,61 +520,61 @@ Object *editor_build(Object *app, struct Dash *d, struct Catalog *c)
                     MUIA_Group_Child, MUI_NewObject(MUIC_Group,
                         MUIA_Group_Horiz, TRUE,
                         MUIA_Group_Child, b_gnew =
-                            MUI_MakeObject(MUIO_Button, "Gruppe"),
+                            MUI_MakeObject(MUIO_Button, (char *)GetStr(MSG_ED_GROUP)),
                         MUIA_Group_Child, b_add =
-                            MUI_MakeObject(MUIO_Button, "Geraet ..."),
+                            MUI_MakeObject(MUIO_Button, (char *)GetStr(MSG_ED_DEVICE)),
                         MUIA_Group_Child, b_del =
-                            MUI_MakeObject(MUIO_Button, "Weg"),
+                            MUI_MakeObject(MUIO_Button, (char *)GetStr(MSG_ED_REMOVE)),
                         MUIA_Group_Child, b_up =
-                            MUI_MakeObject(MUIO_Button, "Hoch"),
+                            MUI_MakeObject(MUIO_Button, (char *)GetStr(MSG_ED_UP)),
                         MUIA_Group_Child, b_down =
-                            MUI_MakeObject(MUIO_Button, "Runter"),
+                            MUI_MakeObject(MUIO_Button, (char *)GetStr(MSG_ED_DOWN)),
                         TAG_DONE),
                     TAG_DONE),
                 TAG_DONE),
 
             MUIA_Group_Child, MUI_NewObject(MUIC_Group,
                 MUIA_Frame,      MUIV_Frame_Group,
-                MUIA_FrameTitle, "Ausgewaehltes",
+                MUIA_FrameTitle, (char *)GetStr(MSG_ED_SELECTED),
                 MUIA_Group_Child, MUI_NewObject(MUIC_Group,
                     MUIA_Group_Horiz, TRUE,
                     MUIA_Group_Child, MUI_MakeObject(MUIO_Label,
-                                          (char *)"_Name", 0),
+                                          (char *)GetStr(MSG_ED_LBL_NAME), 0),
                     MUIA_Group_Child, g_name = MUI_NewObject(MUIC_String,
                         MUIA_String_MaxLen, TITLE_LEN,
                         MUIA_Frame,         MUIV_Frame_String,
                         TAG_DONE),
                     MUIA_Group_Child, b_ren =
-                        MUI_MakeObject(MUIO_Button, "Umbenennen"),
+                        MUI_MakeObject(MUIO_Button, (char *)GetStr(MSG_ED_RENAME)),
                     TAG_DONE),
                 MUIA_Group_Child, MUI_NewObject(MUIC_Group,
                     MUIA_Group_Horiz, TRUE,
                     MUIA_Group_Child, g_iconview = icon_preview(),
                     MUIA_Group_Child, g_icon =
-                        MUI_MakeObject(MUIO_Cycle, (char *)"S_ymbol",
+                        MUI_MakeObject(MUIO_Cycle, (char *)GetStr(MSG_ED_LBL_ICON),
                                        (char **)ICON_TEXT),
                     MUIA_Group_Child, b_icon =
-                        MUI_MakeObject(MUIO_Button, "setzen"),
+                        MUI_MakeObject(MUIO_Button, (char *)GetStr(MSG_ED_SET)),
                     MUIA_Group_Child, g_kind =
-                        MUI_MakeObject(MUIO_Cycle, (char *)"_Art",
+                        MUI_MakeObject(MUIO_Cycle, (char *)GetStr(MSG_ED_LBL_KIND),
                                        (char **)KIND_TEXT),
                     MUIA_Group_Child, b_kind =
-                        MUI_MakeObject(MUIO_Button, "setzen"),
+                        MUI_MakeObject(MUIO_Button, (char *)GetStr(MSG_ED_SET)),
                     TAG_DONE),
                 TAG_DONE),
 
             MUIA_Group_Child, MUI_NewObject(MUIC_Group,
                 MUIA_Group_Horiz, TRUE,
                 MUIA_Group_Child, b_save =
-                    MUI_MakeObject(MUIO_Button, "_Speichern"),
+                    MUI_MakeObject(MUIO_Button, (char *)GetStr(MSG_BT_SAVE)),
                 MUIA_Group_Child, b_close =
-                    MUI_MakeObject(MUIO_Button, "S_chliessen"),
+                    MUI_MakeObject(MUIO_Button, (char *)GetStr(MSG_BT_CLOSE)),
                 TAG_DONE),
             TAG_DONE),
         TAG_DONE);
 
     g_pick_win = MUI_NewObject(MUIC_Window,
-        MUIA_Window_Title,  "Geraet hinzufuegen",
+        MUIA_Window_Title,  (char *)GetStr(MSG_ED_ADDDEVICE),
         MUIA_Window_ID,     MAKE_ID('A','H','A','5'),
         MUIA_Window_Width,  MUIV_Window_Width_Visible(40),
         MUIA_Window_Height, MUIV_Window_Height_Visible(60),
@@ -551,9 +586,9 @@ Object *editor_build(Object *app, struct Dash *d, struct Catalog *c)
             MUIA_Group_Child, MUI_NewObject(MUIC_Group,
                 MUIA_Group_Horiz, TRUE,
                 MUIA_Group_Child, b_padd =
-                    MUI_MakeObject(MUIO_Button, "_Hinzufuegen"),
+                    MUI_MakeObject(MUIO_Button, (char *)GetStr(MSG_ED_ADD)),
                 MUIA_Group_Child, b_pclose =
-                    MUI_MakeObject(MUIO_Button, "S_chliessen"),
+                    MUI_MakeObject(MUIO_Button, (char *)GetStr(MSG_BT_CLOSE)),
                 TAG_DONE),
             TAG_DONE),
         TAG_DONE);
@@ -655,8 +690,8 @@ BOOL editor_handle(ULONG id, BOOL *changed)
             break;
 
         case E_PAGENEW:
-            if (dash_add_page(g_d, "Neue Seite", 13)) {
-                page_add_group(&g_d->p[g_d->count - 1], "Geraete");
+            if (dash_add_page(g_d, GetStr(MSG_ED_NEWPAGE), 13)) {
+                page_add_group(&g_d->p[g_d->count - 1], GetStr(MSG_ED_DEVICES));
                 fill_pages();
                 set(g_pages, MUIA_NList_Active, (LONG)(g_d->count - 1));
                 fill_rows();
@@ -686,7 +721,7 @@ BOOL editor_handle(ULONG id, BOOL *changed)
             break;
 
         case E_GROUPNEW:
-            if (pi >= 0 && page_add_group(&g_d->p[pi], "Neue Gruppe")) {
+            if (pi >= 0 && page_add_group(&g_d->p[pi], GetStr(MSG_ED_NEWGROUP))) {
                 fill_rows();
                 *changed = TRUE;
             }

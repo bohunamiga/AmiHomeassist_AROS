@@ -1,0 +1,339 @@
+; strings.cd - Katalogbeschreibung fuer AmiHomeassist.
+;
+; Die hier stehenden Texte sind die EINGEBAUTEN, also Englisch. Sie greifen,
+; wenn kein Katalog passt. Uebersetzungen stehen in catalogs/<sprache>.ct.
+;
+; Format je Eintrag:   MSG_NAME (id//)
+;                      Der Text
+; Ein fuehrendes _ markiert die Tastaturabkuerzung eines Knopfes.
+; Nummern NIE neu vergeben - alte Kataloge wuerden sonst falsche Texte zeigen.
+;
+#version 0
+
+; ---------------------------------------------------------------- Knoepfe
+MSG_BT_REFRESH (0//)
+_Refresh
+MSG_BT_SELECT (//)
+S_elect ...
+MSG_BT_EDIT (//)
+_Edit ...
+MSG_BT_PREFS (//)
+Se_ttings ...
+MSG_BT_SUGGEST (//)
+S_uggest
+MSG_BT_ALL (//)
+A_ll
+MSG_BT_NONE (//)
+_None
+MSG_BT_APPLY (//)
+_Apply
+MSG_BT_SAVE (//)
+_Save
+MSG_BT_CLOSE (//)
+_Close
+
+; ------------------------------------------------------ Fenster und Titel
+MSG_WIN_SELECT (//)
+Select devices
+MSG_WIN_PREFS (//)
+Settings
+MSG_APP_DESCRIPTION (//)
+Control Home Assistant from your Amiga
+
+; ---------------------------------------------------- Einstellungsfenster
+MSG_LBL_ADDRESS (//)
+_Address
+MSG_LBL_TOKEN (//)
+_Token
+MSG_LBL_INTERVAL (//)
+_Interval (s)
+MSG_HINT_TOKEN (//)
+Token: in Home Assistant under Profile, Security.
+MSG_HINT_SELECT (//)
+Clicking a row adds or removes it.
+
+; ------------------------------------------------------------- Meldungen
+MSG_STATUS_DEVICES (//)
+%ld devices on %ld pages
+MSG_STATUS_SELECTED (//)
+%ld of %ld selected
+MSG_STATUS_QUERYING (//)
+Querying Home Assistant ...
+MSG_STATUS_SAVED (//)
+Saved.
+MSG_ERR_NOMEM (//)
+not enough memory
+MSG_ERR_NOINTUITION (//)
+cannot open intuition.library
+MSG_ERR_NOMUI (//)
+cannot open muimaster.library - is MUI installed?
+MSG_ERR_NOGUI (//)
+cannot build the user interface.
+MSG_EMPTY_DASH (//)
+\33cNo dashboards yet.\n\nUse Select to adopt devices -\nthat creates one page per room.
+
+; -------------------------------------------------------- Rollladenknopf
+MSG_COVER_UP (//)
+Up
+MSG_COVER_STOP (//)
+Stop
+MSG_COVER_DOWN (//)
+Down
+
+; --------------------------------------------------------- Zustandsworte
+MSG_STATE_OPEN (//)
+open
+MSG_STATE_CLOSED (//)
+closed
+MSG_STATE_MOTION (//)
+motion
+MSG_STATE_QUIET (//)
+quiet
+MSG_STATE_WET (//)
+wet
+MSG_STATE_DRY (//)
+dry
+MSG_STATE_ON (//)
+on
+MSG_STATE_OFF (//)
+off
+MSG_STATE_OPENING (//)
+opening
+MSG_STATE_CLOSING (//)
+closing
+MSG_STATE_MISSING (//)
+\33rmissing
+
+; ---------------------------------------------------- Gruppenueberschrift
+MSG_GROUP_SWITCHES (//)
+Switches
+MSG_GROUP_OPENINGS (//)
+Windows and doors
+MSG_GROUP_READINGS (//)
+Readings
+MSG_GROUP_COVERS (//)
+Blinds
+
+; ============================================================ cli.c
+MSG_CLI_ERROR (//)
+Error: %s\n
+MSG_CLI_ENTRIES (//)
+\n%d of %d entries
+MSG_CLI_HIDDEN (//)
+, %d hidden (use ALL to show)
+MSG_CLI_CATALOG (//)
+Catalog: %d entries, %d adopted\n\n
+MSG_CLI_NOTHING (//)
+Nothing adopted - select devices in the GUI first.\n
+MSG_CLI_CREATED (//)
+created: %d pages from %d adopted devices\n
+MSG_CLI_WRITEFAIL (//)
+Write failed.\n
+MSG_CLI_READFAIL (//)
+Read failed.\n
+MSG_CLI_READBACK (//)
+read back: %d pages\n\n
+MSG_CLI_ICON (//)
+%s  (icon %d)\n
+MSG_CLI_POLLED (//)
+\npolled on the interval: %d devices\n
+MSG_CLI_PREFSSAVED (//)
+Settings saved.\n
+
+; ============================================================ amiha.c
+MSG_ERR_NONE (//)
+no error
+MSG_ERR_NOPREFS (//)
+no settings found (ENVARC:AmiHomeassist/AmiHomeassist.prefs)
+MSG_ERR_NOHOST (//)
+host= is missing from the settings
+MSG_ERR_NOTOKEN (//)
+token= is missing from the settings
+MSG_ERR_PREFSWRITE (//)
+cannot write the settings
+MSG_ERR_IMPORTWRITE (//)
+cannot write the adopted-device list
+MSG_ERR_NOSOCKET (//)
+bsdsocket.library not available - is the TCP stack up?
+MSG_ERR_NORESOLVE (//)
+cannot resolve the host name
+MSG_ERR_SOCKET (//)
+socket() failed
+MSG_ERR_REFUSED (//)
+connection refused - is Home Assistant running?
+MSG_ERR_SEND (//)
+sending failed
+MSG_ERR_RECV (//)
+receiving failed
+MSG_ERR_BADRESPONSE (//)
+unintelligible response from the server
+MSG_ERR_NOBODY (//)
+response without a body
+MSG_ERR_TOKEN401 (//)
+Home Assistant rejects the token (401)
+MSG_ERR_HTTP (//)
+Home Assistant answers with HTTP %d
+MSG_ERR_NODEVICES (//)
+Home Assistant returns no devices
+MSG_ERR_NOMEMLIST (//)
+not enough memory for the device list
+MSG_ERR_BADENTITY (//)
+unusable entity ID
+
+; ------------------------------------------- Kommentare in den Dateien
+MSG_FILE_PREFS_HEAD (//)
+; AmiHomeassist - settings\n
+MSG_FILE_PREFS_NOTE (//)
+; Lines starting with ; are comments. Format: key=value\n\n
+MSG_FILE_PREFS_POLL (//)
+\n; Interval of the state query, in seconds\n
+MSG_FILE_IMPORT_HEAD (//)
+; AmiHomeassist - adopted devices, one ID per line\n
+MSG_FILE_DASH_HEAD (//)
+; AmiHomeassist - dashboards\n
+MSG_FILE_DASH_NOTE (//)
+; Written by the editor. Edit by hand if you must:\n
+MSG_FILE_DASH_KINDS (//)
+; Kinds: toggle lamp value gauge cover text\n\n
+
+; ============================================================ edit.c
+MSG_ED_TITLE (//)
+Edit dashboards
+MSG_ED_ADDDEVICE (//)
+Add device
+MSG_ED_PAGES (//)
+\33cPages
+MSG_ED_CONTENT (//)
+\33cPage content
+MSG_ED_SELECTED (//)
+Selection
+MSG_ED_NEW (//)
+New
+MSG_ED_REMOVE (//)
+Remove
+MSG_ED_UP (//)
+Up
+MSG_ED_DOWN (//)
+Down
+MSG_ED_GROUP (//)
+Group
+MSG_ED_DEVICE (//)
+Device ...
+MSG_ED_RENAME (//)
+Rename
+MSG_ED_SET (//)
+set
+MSG_ED_ADD (//)
+_Add
+MSG_ED_LBL_NAME (//)
+_Name
+MSG_ED_LBL_ICON (//)
+S_ymbol
+MSG_ED_LBL_KIND (//)
+_Kind
+MSG_ED_NEWPAGE (//)
+New page
+MSG_ED_NEWGROUP (//)
+New group
+MSG_ED_DEVICES (//)
+Devices
+
+; ---------------------------------------------- Arten (Auswahlfeld)
+MSG_KIND_TOGGLE (//)
+Switch
+MSG_KIND_LAMP (//)
+Indicator
+MSG_KIND_VALUE (//)
+Number
+MSG_KIND_GAUGE (//)
+Bar
+MSG_KIND_COVER (//)
+Blind
+MSG_KIND_TEXT (//)
+Text
+
+; -------------------------------------------- Symbole (Auswahlfeld)
+MSG_ICON_OFFICE (//)
+Office
+MSG_ICON_BATH (//)
+Bathroom
+MSG_ICON_ATTIC (//)
+Attic
+MSG_ICON_GARAGE (//)
+Garage
+MSG_ICON_GARDEN (//)
+Garden
+MSG_ICON_CELLAR (//)
+Cellar
+MSG_ICON_KITCHEN (//)
+Kitchen
+MSG_ICON_BEDROOM (//)
+Bedroom
+MSG_ICON_TOILET (//)
+Toilet
+MSG_ICON_STAIRS (//)
+Stairs
+MSG_ICON_LAUNDRY (//)
+Laundry
+MSG_ICON_LIVING (//)
+Living room
+MSG_ICON_NOAREA (//)
+No room
+MSG_ICON_HOUSE (//)
+House
+MSG_ICON_OVERVIEW (//)
+Overview
+MSG_ICON_ENERGY (//)
+Energy
+MSG_ICON_SOLAR (//)
+Solar
+MSG_ICON_BATTERY (//)
+Battery
+MSG_ICON_TEMPERATURE (//)
+Temperature
+MSG_ICON_HUMIDITY (//)
+Humidity
+MSG_ICON_WEATHER (//)
+Weather
+MSG_ICON_LIGHT (//)
+Light
+MSG_ICON_SOCKET (//)
+Socket
+MSG_ICON_WINDOW (//)
+Window
+MSG_ICON_DOOR (//)
+Door
+MSG_ICON_LOCK (//)
+Lock
+MSG_ICON_SECURITY (//)
+Security
+MSG_ICON_CAR (//)
+Car
+MSG_ICON_TV (//)
+Television
+MSG_ICON_MUSIC (//)
+Music
+MSG_ICON_NETWORK (//)
+Network
+MSG_ICON_BLIND (//)
+Blind
+MSG_ICON_FAN (//)
+Fan
+MSG_ICON_TIME (//)
+Time
+MSG_ICON_TOOL (//)
+Tool
+MSG_ICON_PRINTER (//)
+Printer
+MSG_CLI_SETUPHINT (//)
+\nSet it up like this:\n
+MSG_CLI_SETUPCMD (//)
+  AmiHomeassist HOST=http://homeassistant:8123 TOKEN=<your-token> SAVE\n
+MSG_CLI_TURNEDON (//)
+turned on
+MSG_CLI_TURNEDOFF (//)
+turned off
+MSG_CLI_TOGGLED (//)
+toggled
+MSG_ERR_NOHTTPS (//)
+https is not supported - please use http://

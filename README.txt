@@ -1,8 +1,8 @@
-AmiHomeassist 0.5
+AmiHomeassist 0.6
 =================
 
   English below, deutsche Fassung weiter unten.
-  Deutsche Fassung ab "AmiHomeassist 0.5 - Deutsch".
+  Deutsche Fassung ab "AmiHomeassist 0.6 - Deutsch".
 
 
 ENGLISH
@@ -56,34 +56,68 @@ SETTING UP
      only a guess - every installation looks different. Look it over,
      adjust, then Apply. One page per room is created from it.
 
-  4. Want it different? Use "Bearbeiten ..." (Edit).
+  4. Want it different? Use "Edit ...".
 
 
 THE THREE WINDOWS
 
   Device list   the main window with the sidebar
 
-  Auswahl       which devices the program knows at all. "Vorschlag"
-                (suggestion) hides the usual ballast: the per-device
+  Select        which devices the program knows at all. "Suggest"
+                hides the usual ballast: the per-device
                 internet-access switches of a Fritzbox, the Dnd lamps
                 of smart sockets, technical helper switches and
                 anything unavailable.
 
-  Bearbeiten    create pages, form groups, add devices, choose the
+  Edit          create pages, form groups, add devices, choose the
                 widget kind and the icon, reorder.
 
 
 WIDGET KINDS
 
-  Schalter    light and switch - the toggle you click
-  Laempchen   binary_sensor - window open or closed
-  Zahl        sensor with its unit
-  Balken      sensor with a fixed range, per cent or watts
-  Rollladen   cover - up, stop, down, and the position
+  Switch      light and switch - the toggle you click
+  Indicator   binary_sensor - window open or closed
+  Number      sensor with its unit
+  Bar         sensor with a fixed range, per cent or watts
+  Blind       cover - up, stop, down, and the position
   Text        a caption
 
   When you add a device the program suggests a kind, from its domain
   and device class. The editor lets you change it.
+
+
+LANGUAGES
+
+  The interface speaks English, German, Italian and Spanish. English is
+  built into the program; the other three sit in the Catalogs drawer and
+  are loaded through locale.library. If that library is missing, or no
+  catalogue matches, everything simply carries on in English.
+
+  Normally the language follows your system setting in Prefs/Locale, so
+  there is nothing to do. If you run an English Workbench but want this
+  program in your own language, set a variable:
+
+      SetEnv SAVE AmiHomeassistLanguage deutsch
+
+  Valid values are the drawer names: deutsch, italiano, espanol (with
+  the tilde). Back to English:
+
+      UnSetEnv AmiHomeassistLanguage
+      Delete ENVARC:AmiHomeassistLanguage
+
+  Both lines are needed - SAVE put a copy in ENVARC:.
+
+  Device names, room names, units and states come from Home Assistant
+  and are therefore already in your own language.
+
+  Group headings on a dashboard are written into Dashboards.prefs when
+  a page is created, so they keep the language they were made in.
+  Changing the language does not rewrite them; new pages come out in
+  the new language, and the editor renames the old ones.
+
+  Italian and Spanish were not written by native speakers. The .ct
+  files in the Source drawer are plain text - corrections are welcome
+  and need no recompilation.
 
 
 FILES
@@ -135,13 +169,52 @@ CREDITS AND RIGHTS
 
   Source included, MIT licence. See the Source drawer.
 
+  muistubs.c - the out-of-line varargs stubs for muimaster.library -
+  comes from the amimcp project and is Apache 2.0, not MIT. The licence
+  text is in Source/LICENSE-Apache-2.0, the origin is named in the file
+  itself: https://github.com/thomas-luebker/amimcp
+
+  This program is vibe coded. I described what it should do, an AI
+  wrote the code, and I read, tested and decided what stayed in. The
+  full source is here so you can judge for yourself.
+
+BUILDING IT YOURSELF
+
+  Cross-compiled with m68k-amigaos-gcc (AmigaPorts), not with SAS/C on
+  the Amiga as 0.5 was. In the Source drawer:
+
+      make
+
+  Target profile is 68020 and up, with and without FPU, so the flags
+  are -mcpu=68020 and nothing else. "make check-fpu" proves by
+  disassembly that not one FPU instruction made it into the binary.
+
+  Two things are NOT in this archive and you must supply them:
+
+    MUI's own developer headers (libraries/mui.h, proto/muimaster.h,
+    clib/muimaster_protos.h, inline/muimaster.h). MUI's licence allows
+    redistribution of the complete original archive only, so they
+    cannot ride along here. Take them from the MUI developer archive
+    and put them under Source/vendor/mui/include/.
+
+    An m68k-amigaos cross toolchain:
+    https://github.com/AmigaPorts/m68k-amigaos-gcc
+
+  The NList class headers ARE included, under Source/mui/ - they are
+  LGPL. They are only headers; the .mcc classes themselves you install
+  from Aminet as described above.
+
+  locale.py turns strings.cd and catalogs/*.ct into the catalogues and
+  into locale_strings.h. That header is included ready-made, so a build
+  works without Python.
+
   Tested on an A500 with PiStorm (Emu68), OS 3.2.3, MUI 3.8. A real
   68030 is still to come.
 
 
 ================================================================
 
-AmiHomeassist 0.5 - Deutsch
+AmiHomeassist 0.6 - Deutsch
 ===========================
 
 Home Assistant vom Amiga aus: Lampen, Steckdosen, Rollaeden und
@@ -227,6 +300,43 @@ DARSTELLUNGSARTEN
   Geraeteklasse. Im Editor laesst sie sich aendern.
 
 
+SPRACHEN
+--------
+
+  Die Oberflaeche spricht Englisch, Deutsch, Italienisch und Spanisch.
+  Englisch steckt fest im Programm; die anderen drei liegen im
+  Verzeichnis Catalogs und werden ueber locale.library geladen. Fehlt
+  die Bibliothek oder passt kein Katalog, laeuft alles auf Englisch
+  weiter - ohne Meldung.
+
+  Normalerweise folgt die Sprache der Systemeinstellung aus
+  Prefs/Locale, es ist also nichts zu tun. Wer sein Workbench englisch
+  faehrt, dieses Programm aber deutsch will, setzt eine Variable:
+
+      SetEnv SAVE AmiHomeassistLanguage deutsch
+
+  Gueltig sind die Verzeichnisnamen: deutsch, italiano, espanol (mit
+  Tilde). Zurueck auf Englisch:
+
+      UnSetEnv AmiHomeassistLanguage
+      Delete ENVARC:AmiHomeassistLanguage
+
+  Beide Zeilen sind noetig - SAVE hat eine Kopie nach ENVARC: gelegt.
+
+  Geraete- und Raumnamen, Einheiten und Zustaende kommen aus Home
+  Assistant und sind damit ohnehin in deiner Sprache.
+
+  Gruppenueberschriften eines Dashboards werden beim Anlegen einer
+  Seite in Dashboards.prefs geschrieben und behalten die Sprache, in
+  der sie entstanden sind. Ein Sprachwechsel schreibt sie nicht um;
+  neue Seiten entstehen in der neuen Sprache, und im Editor lassen sich
+  alte umbenennen.
+
+  Italienisch und Spanisch stammen nicht von Muttersprachlern. Die
+  .ct-Dateien im Source-Verzeichnis sind reiner Text - Korrekturen sind
+  willkommen und brauchen keine Neuuebersetzung.
+
+
 DATEIEN
 -------
 
@@ -278,5 +388,57 @@ HERKUNFT UND RECHTE
   ein eigenstaendiges Projekt und hat mit diesem Programm nichts zu
   tun: https://www.home-assistant.io/
 
+  Der Quelltext liegt vollstaendig bei, MIT-Lizenz. Siehe das
+  Verzeichnis Source.
+
+  muistubs.c - die ausgelagerten Varargs-Stubs fuer muimaster.library -
+  stammt aus dem Projekt amimcp und steht unter Apache 2.0, nicht unter
+  MIT. Der Lizenztext liegt in Source/LICENSE-Apache-2.0, die Herkunft
+  steht in der Datei selbst:
+  https://github.com/thomas-luebker/amimcp
+
   Getestet auf A500 mit PiStorm (Emu68), OS 3.2.3, MUI 3.8. Ein echter
   68030 steht noch aus.
+
+  Dieses Programm ist vibe-coded. Ich habe beschrieben, was es koennen
+  soll, geschrieben hat den Code eine KI, und gelesen, getestet und
+  entschieden habe ich. Der Quelltext liegt vollstaendig bei - schau
+  selbst hinein.
+
+
+SELBER UEBERSETZEN
+------------------
+
+  Gebaut wird cross mit m68k-amigaos-gcc (AmigaPorts), nicht mehr mit
+  SAS/C auf dem Amiga wie noch bei 0.5. Im Verzeichnis Source:
+
+      make
+
+  Zielprofil ist 68020 aufwaerts, mit und ohne FPU - deshalb steht in
+  den Uebersetzungsschaltern -mcpu=68020 und sonst nichts. "make
+  check-fpu" weist per Disassembler nach, dass keine einzige
+  FPU-Instruktion im Binary gelandet ist.
+
+  Zwei Dinge liegen NICHT bei und muessen selbst besorgt werden:
+
+    MUIs eigene Entwickler-Header (libraries/mui.h, proto/muimaster.h,
+    clib/muimaster_protos.h, inline/muimaster.h). MUIs Lizenz erlaubt
+    nur die Weitergabe des vollstaendigen Originalarchivs, sie duerfen
+    hier also nicht mitfahren. Aus dem MUI-Entwicklerarchiv nehmen und
+    nach Source/vendor/mui/include/ legen.
+
+    Eine m68k-amigaos-Cross-Toolchain:
+    https://github.com/AmigaPorts/m68k-amigaos-gcc
+
+  Die NList-Header liegen dagegen bei, unter Source/mui/ - sie sind
+  LGPL. Es sind nur Header; die .mcc-Klassen selbst installiert man wie
+  oben beschrieben aus dem Aminet.
+
+  locale.py macht aus strings.cd und catalogs/*.ct die Kataloge und die
+  Datei locale_strings.h. Diese Datei liegt fertig bei, ein Bau kommt
+  also ohne Python aus.
+
+
+  Hinweis zur Fehlersuche: eine ausfuehrliche Beschreibung der Fallen,
+  die beim Umstieg auf gcc aufgetreten sind, steht im Quelltext - vor
+  allem in Makefile und amiloc.c.

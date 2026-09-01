@@ -14,6 +14,7 @@
 #include <ctype.h>
 
 #include "amiha.h"
+#include "amiloc.h"
 
 struct Library *SocketBase = NULL;
 
@@ -43,7 +44,7 @@ void ah_trace(const char *what, long value)
 
 const char *ha_last_error(void)
 {
-    return g_error[0] ? g_error : "kein Fehler";
+    return g_error[0] ? g_error : GetStr(MSG_ERR_NONE);
 }
 
 static int fail(int code, const char *msg)
@@ -125,7 +126,7 @@ static int parse_host(struct Prefs *p, const char *value)
 
     if (strnicmp(s, "https://", 8) == 0) {
         return fail(AH_ENOPREFS,
-                    "https wird nicht unterstuetzt - bitte http:// verwenden");
+                    GetStr(MSG_ERR_NOHTTPS));
     }
     if (strnicmp(s, "http://", 7) == 0) {
         s += 7;
@@ -200,16 +201,15 @@ int prefs_load(struct Prefs *p)
         sprintf(path, "%s/%s", PREFS_DIR_ARC, PREFS_FILE);
         if (!prefs_read_file(p, path)) {
             return fail(AH_ENOPREFS,
-                        "keine Einstellungen gefunden "
-                        "(ENVARC:AmiHomeassist/AmiHomeassist.prefs)");
+                        GetStr(MSG_ERR_NOPREFS));
         }
     }
 
     if (p->host[0] == '\0') {
-        return fail(AH_ENOPREFS, "in den Einstellungen fehlt host=");
+        return fail(AH_ENOPREFS, GetStr(MSG_ERR_NOHOST));
     }
     if (p->token[0] == '\0') {
-        return fail(AH_ENOPREFS, "in den Einstellungen fehlt token=");
+        return fail(AH_ENOPREFS, GetStr(MSG_ERR_NOTOKEN));
     }
     if (p->poll <= 0) {
         p->poll = 5;
@@ -233,11 +233,11 @@ static int prefs_write_one(struct Prefs *p, const char *dir)
         return 0;
     }
 
-    FPrintf(fh, "; AmiHomeassist - Einstellungen\n");
-    FPrintf(fh, "; Zeilen mit ; sind Kommentare. Format: schluessel=wert\n\n");
+    FPrintf(fh, "%s", (LONG)(ULONG)GetStr(MSG_FILE_PREFS_HEAD));
+    FPrintf(fh, "%s", (LONG)(ULONG)GetStr(MSG_FILE_PREFS_NOTE));
     FPrintf(fh, "host=http://%s:%ld\n", (LONG)(ULONG)p->host, (LONG)p->port);
     FPrintf(fh, "token=%s\n", (LONG)(ULONG)p->token);
-    FPrintf(fh, "\n; Abstand der Zustandsabfrage in Sekunden\n");
+    FPrintf(fh, "%s", (LONG)(ULONG)GetStr(MSG_FILE_PREFS_POLL));
     FPrintf(fh, "poll=%ld\n", (LONG)p->poll);
 
     Close(fh);
@@ -254,7 +254,7 @@ int prefs_save(struct Prefs *p)
     prefs_write_one(p, PREFS_DIR_ENV);
 
     if (!arc) {
-        return fail(AH_ENOPREFS, "Einstellungen lassen sich nicht schreiben");
+        return fail(AH_ENOPREFS, GetStr(MSG_ERR_PREFSWRITE));
     }
     return AH_OK;
 }
@@ -373,10 +373,10 @@ int import_save(struct Catalog *c)
     sprintf(path, "%s/%s", PREFS_DIR_ARC, IMPORT_FILE);
     fh = Open((STRPTR)path, MODE_NEWFILE);
     if (!fh) {
-        return fail(AH_ENOPREFS, "Importliste laesst sich nicht schreiben");
+        return fail(AH_ENOPREFS, GetStr(MSG_ERR_IMPORTWRITE));
     }
 
-    FPrintf(fh, "; AmiHomeassist - uebernommene Geraete, eine ID je Zeile\n");
+    FPrintf(fh, "%s", (LONG)(ULONG)GetStr(MSG_FILE_IMPORT_HEAD));
     for (i = 0; i < c->count; i++) {
         if (c->list[i].selected) {
             FPrintf(fh, "%s\n", (LONG)(ULONG)c->list[i].id);
@@ -402,7 +402,7 @@ static int recv_all(int sock, char **out, long *outlen)
     long n;
 
     if (!buf) {
-        return fail(AH_EMEM, "zu wenig Speicher");
+        return fail(AH_EMEM, GetStr(MSG_ERR_NOMEM));
     }
 
     for (;;) {
@@ -410,7 +410,7 @@ static int recv_all(int sock, char **out, long *outlen)
             char *nb = realloc(buf, cap * 2);
             if (!nb) {
                 free(buf);
-                return fail(AH_EMEM, "zu wenig Speicher");
+                return fail(AH_EMEM, GetStr(MSG_ERR_NOMEM));
             }
             buf = nb;
             cap *= 2;
@@ -451,15 +451,14 @@ static int http_request(struct Prefs *p, const char *method, const char *path,
      * Beides zusammen stuerzt beim Start ab. */
     SocketBase = OpenLibrary("bsdsocket.library", 4);
     if (!SocketBase) {
-        return fail(AH_ENET, "bsdsocket.library nicht verfuegbar - "
-                             "laeuft der TCP-Stack?");
+        return fail(AH_ENET, GetStr(MSG_ERR_NOSOCKET));
     }
 
     he = gethostbyname((UBYTE *)p->host);
     if (!he) {
         CloseLibrary(SocketBase);
         SocketBase = NULL;
-        return fail(AH_ENET, "Rechnername laesst sich nicht aufloesen");
+        return fail(AH_ENET, GetStr(MSG_ERR_NORESOLVE));
     }
 
     memset(&sa, 0, sizeof(sa));
@@ -471,14 +470,14 @@ static int http_request(struct Prefs *p, const char *method, const char *path,
     if (sock < 0) {
         CloseLibrary(SocketBase);
         SocketBase = NULL;
-        return fail(AH_ENET, "socket() fehlgeschlagen");
+        return fail(AH_ENET, GetStr(MSG_ERR_SOCKET));
     }
 
     if (connect(sock, (struct sockaddr *)&sa, sizeof(sa)) < 0) {
         CloseSocket(sock);
         CloseLibrary(SocketBase);
         SocketBase = NULL;
-        return fail(AH_ENET, "Verbindung abgelehnt - laeuft Home Assistant?");
+        return fail(AH_ENET, GetStr(MSG_ERR_REFUSED));
     }
 
     reqcap = 1024 + strlen(p->token) + bodylen;
@@ -487,7 +486,7 @@ static int http_request(struct Prefs *p, const char *method, const char *path,
         CloseSocket(sock);
         CloseLibrary(SocketBase);
         SocketBase = NULL;
-        return fail(AH_EMEM, "zu wenig Speicher");
+        return fail(AH_EMEM, GetStr(MSG_ERR_NOMEM));
     }
 
     sprintf(req,
@@ -512,7 +511,7 @@ static int http_request(struct Prefs *p, const char *method, const char *path,
             CloseSocket(sock);
             CloseLibrary(SocketBase);
             SocketBase = NULL;
-            return fail(AH_ENET, "Senden fehlgeschlagen");
+            return fail(AH_ENET, GetStr(MSG_ERR_SEND));
         }
         sent += n;
     }
@@ -529,22 +528,22 @@ static int http_request(struct Prefs *p, const char *method, const char *path,
 
     if (sscanf(raw, "HTTP/%*d.%*d %d", &status) != 1) {
         free(raw);
-        return fail(AH_EHTTP, "unverstaendliche Antwort vom Server");
+        return fail(AH_EHTTP, GetStr(MSG_ERR_BADRESPONSE));
     }
 
     hdrend = strstr(raw, "\r\n\r\n");
     if (!hdrend) {
         free(raw);
-        return fail(AH_EHTTP, "Antwort ohne Rumpf");
+        return fail(AH_EHTTP, GetStr(MSG_ERR_NOBODY));
     }
     hdrend += 4;
 
     if (status < 200 || status > 299) {
         char msg[128];
         if (status == 401) {
-            sprintf(msg, "Home Assistant weist den Token zurueck (401)");
+            strcpy(msg, GetStr(MSG_ERR_TOKEN401));
         } else {
-            sprintf(msg, "Home Assistant antwortet mit HTTP %d", status);
+            sprintf(msg, GetStr(MSG_ERR_HTTP), status);
         }
         free(raw);
         return fail(AH_EHTTP, msg);
@@ -632,7 +631,7 @@ int catalog_fetch(struct Prefs *p, struct Catalog *c)
 
             if (!catalog_room_for_one(c)) {
                 free(body);
-                return fail(AH_EMEM, "zu wenig Speicher fuer die Geraeteliste");
+                return fail(AH_EMEM, GetStr(MSG_ERR_NOMEMLIST));
             }
             e = &c->list[c->count];
             memset(e, 0, sizeof(*e));
@@ -674,7 +673,7 @@ int catalog_fetch(struct Prefs *p, struct Catalog *c)
     free(body);
 
     if (c->count == 0) {
-        return fail(AH_EHTTP, "Home Assistant liefert keine Geraete");
+        return fail(AH_EHTTP, GetStr(MSG_ERR_NODEVICES));
     }
     return AH_OK;
 }
@@ -704,7 +703,7 @@ int states_refresh(struct Prefs *p, struct Catalog *c)
     cap = 160 + (long)n * (ID_LEN + 4);
     body = malloc(cap);
     if (!body) {
-        return fail(AH_EMEM, "zu wenig Speicher");
+        return fail(AH_EMEM, GetStr(MSG_ERR_NOMEM));
     }
 
     w = body;
@@ -777,7 +776,7 @@ int ha_service(struct Prefs *p, const char *entity_id, const char *service)
 
     entity_domain(entity_id, domain, sizeof(domain));
     if (domain[0] == '\0') {
-        return fail(AH_EHTTP, "unbrauchbare Entity-ID");
+        return fail(AH_EHTTP, GetStr(MSG_ERR_BADENTITY));
     }
 
     sprintf(path, "/api/services/%s/%s", domain, service);

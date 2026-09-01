@@ -19,6 +19,8 @@
  * darueber, ob das Programm benutzbar ist.
  */
 
+#include "amiloc.h"
+
 #ifndef AMIHA_H
 #define AMIHA_H
 
@@ -33,7 +35,12 @@
 #define UNIT_LEN   12
 #define DCLASS_LEN 20
 
-#define AREA_NONE  "Ohne Raum"
+/* Der Platzhalter fuer Geraete ohne Raum. Das Programm setzt ihn selbst
+ * (Home Assistant liefert dann gar nichts), also darf er uebersetzt sein -
+ * anders als die Wortliste in dash.c, die gegen HA-Daten vergleicht.
+ * Wird beim Erzeugen einer Seite in die Dashboard-Datei geschrieben und
+ * ist ab dann fest, genau wie die Gruppentitel. */
+#define AREA_NONE  GetStr(MSG_ICON_NOAREA)
 
 /* Die Domains, die geholt werden. climate fehlt bewusst - Sollwert, Modus und
  * Luefterstufe brauchen eigene Bedienelemente und kommen spaeter. */

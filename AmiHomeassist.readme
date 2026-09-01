@@ -1,9 +1,9 @@
-Short:        Home Assistant dashboards for MUI
-Kurz:         Home Assistant auf dem Amiga, mit MUI
+Short:        Home Assistant dashboards for MUI, 4 languages
+Kurz:         Home Assistant auf dem Amiga, mit MUI, 4 Sprachen
 Author:       radi777
 Uploader:     thomas.radeck gmail com (radi777, see note below)
 Type:         comm/tcp
-Version:      0.5
+Version:      0.6
 Architecture: m68k-amigaos
 Requires:     dev/mui/MCC_NList-0.128.lha
 Distribution: Aminet
@@ -23,12 +23,28 @@ easily has 900 entities and you want a dozen or two. So there is a
 picker with a suggestion you can overrule, and an editor where pages,
 groups and devices are put together freely.
 
+NEW IN 0.6
+
+The interface now speaks English, German, Italian and Spanish. English
+is built in; the other three ship as catalogues and are loaded through
+locale.library. No locale.library, or no matching catalogue, and it
+simply carries on in English. Normally the language follows your
+setting in Prefs/Locale; if you run an English Workbench but want the
+program in your own language, set AmiHomeassistLanguage.
+
+Device names, room names, units and states come from Home Assistant, so
+those were already in your own language.
+
+Built with m68k-amigaos-gcc now instead of SAS/C. Nothing changes for
+you: same target of 68020 and up, with and without FPU, and the build
+proves by disassembly that no FPU instruction slipped in.
+
 WIDGET KINDS
 
   Switch      light and switch - the toggle you click
-  Lamp        binary_sensor - window open or closed
-  Value       sensor with its unit
-  Gauge       sensor with a fixed range, per cent or watts
+  Indicator   binary_sensor - window open or closed
+  Number      sensor with its unit
+  Bar         sensor with a fixed range, per cent or watts
   Blind       cover - up, stop, down, and the position
   Text        a caption
 
@@ -55,14 +71,25 @@ REQUIREMENTS
 A shell version is included that works without MUI: list and switch
 devices, for scripts.
 
-Full source is included, MIT licence. Built with SAS/C 6.59 on the
-Amiga itself, not cross-compiled.
+Full source is included, MIT licence - except muistubs.c, which comes
+from the amimcp project and is Apache 2.0; its licence text is in the
+archive. MUI's own developer headers are NOT included, as MUI's licence
+permits redistribution of the complete original archive only; the
+README says where to get them.
 
 Icons are Material Design Icons (Apache 2.0). The house logo belongs to
 the Home Assistant project, which is separate from and unaffiliated
 with this program.
 
+Italian and Spanish were not written by native speakers. The
+translation files are plain text in the Source drawer - corrections are
+welcome and need no recompilation.
+
 Tested on an A500 with PiStorm (Emu68), OS 3.2.3, MUI 3.8.
+
+This program is vibe coded. I described what it should do, an AI wrote
+the code, and I read, tested and decided what stayed in. The full
+source is in the archive, so you can judge for yourself.
 
 Note on the uploader address: it is written without the @ and the dot
 to keep address harvesters out. Put an @ before "gmail" and a dot in
@@ -83,6 +110,24 @@ grosse Home-Assistant-Installation hat schnell 900 Entitaeten, davon
 willst du ein bis zwei Dutzend. Also gibt es eine Auswahl mit einem
 Vorschlag zum Ueberstimmen und einen Editor, in dem Seiten, Gruppen und
 Geraete frei zusammengestellt werden.
+
+NEU IN 0.6
+
+Die Oberflaeche spricht jetzt Englisch, Deutsch, Italienisch und
+Spanisch. Englisch steckt fest im Programm, die anderen drei liegen als
+Katalog bei und werden ueber locale.library geladen. Fehlt die
+Bibliothek oder passt kein Katalog, laeuft alles auf Englisch weiter.
+Normalerweise folgt die Sprache der Einstellung aus Prefs/Locale; wer
+sein Workbench englisch faehrt, das Programm aber deutsch will, setzt
+AmiHomeassistLanguage.
+
+Geraete- und Raumnamen, Einheiten und Zustaende kommen aus Home
+Assistant und waren damit ohnehin in deiner Sprache.
+
+Uebersetzt wird jetzt mit m68k-amigaos-gcc statt mit SAS/C. Fuer dich
+aendert sich nichts: gleiches Ziel 68020 aufwaerts, mit und ohne FPU,
+und der Bau weist per Disassembler nach, dass keine FPU-Instruktion
+hineingeraten ist.
 
 DARSTELLUNGSARTEN
 
@@ -116,14 +161,26 @@ VORAUSSETZUNGEN
 
 Eine Shell-Fassung liegt bei, die ohne MUI auskommt.
 
-Der Quelltext liegt vollstaendig bei, MIT-Lizenz. Uebersetzt wird mit
-SAS/C 6.59 auf dem Amiga selbst, nicht cross.
+Der Quelltext liegt vollstaendig bei, MIT-Lizenz - ausser muistubs.c,
+das aus dem Projekt amimcp stammt und unter Apache 2.0 steht; der
+Lizenztext liegt im Archiv. MUIs eigene Entwickler-Header liegen NICHT
+bei, weil MUIs Lizenz nur die Weitergabe des vollstaendigen
+Originalarchivs erlaubt; die README sagt, woher man sie bekommt.
 
 Die Symbole stammen aus den Material Design Icons (Apache 2.0). Das
 Haus-Logo gehoert dem Home-Assistant-Projekt; Home Assistant ist ein
 eigenstaendiges Projekt und hat mit diesem Programm nichts zu tun.
 
+Italienisch und Spanisch stammen nicht von Muttersprachlern. Die
+Uebersetzungsdateien sind reiner Text im Source-Verzeichnis -
+Korrekturen sind willkommen und brauchen keine Neuuebersetzung.
+
 Getestet auf A500 mit PiStorm (Emu68), OS 3.2.3, MUI 3.8.
+
+Dieses Programm ist vibe-coded. Ich habe beschrieben, was es koennen
+soll, geschrieben hat den Code eine KI, und gelesen, getestet und
+entschieden habe ich. Der Quelltext liegt vollstaendig bei - schau
+selbst hinein.
 
 Hinweis zur Uploader-Adresse: sie steht ohne @ und ohne Punkt da, damit
 Adresssammler nichts davon haben. Ein @ vor "gmail", ein Punkt vor

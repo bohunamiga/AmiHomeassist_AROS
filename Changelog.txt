@@ -1,6 +1,35 @@
 AmiHomeassist - was sich geaendert hat
 =====================================
 
+0.6   31.08.2026
+
+  Vier Sprachen. Die Oberflaeche spricht Englisch, Deutsch, Italienisch
+  und Spanisch. Eingebaut ist Englisch; die anderen drei liegen als
+  Katalog bei und werden ueber locale.library geladen. Fehlt die
+  Bibliothek oder passt kein Katalog, laeuft alles auf Englisch weiter.
+
+  Die Sprache folgt der Systemeinstellung aus Prefs/Locale. Wer sein
+  Workbench englisch faehrt, dieses Programm aber in seiner Sprache
+  will, setzt eine Umgebungsvariable:
+
+      SetEnv SAVE AmiHomeassistLanguage deutsch
+
+  Geraete-, Raum- und Einheitennamen kommen weiter aus Home Assistant
+  und sind damit ohnehin in der Sprache des Nutzers.
+
+  Die Zuordnung von Raumsymbolen kennt jetzt die Raumwoerter aller vier
+  Sprachen. Ein deutsch benanntes Home Assistant an einem englischen
+  Workbench bekommt also weiter passende Symbole.
+
+  Uebersetzt wird jetzt cross mit m68k-amigaos-gcc statt mit SAS/C auf
+  dem Amiga. Am Programm aendert das nichts - das Zielprofil ist
+  unveraendert 68020 aufwaerts, mit und ohne FPU. Der Bau prueft
+  ausserdem nach, dass keine einzige FPU-Instruktion im Binary steckt.
+
+  Die Oberflaechenfassung ist rund 3 KB kleiner als in 0.5, obwohl 151
+  uebersetzbare Texte dazugekommen sind.
+
+
 0.5   11.08.2026
 
   Seitenleiste statt flacher Liste. Links die Dashboards mit Symbol,

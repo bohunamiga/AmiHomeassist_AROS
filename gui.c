@@ -39,6 +39,7 @@ typedef ULONG IPTR;
 #include "mui/NListview_mcc.h"
 
 #include "amiha.h"
+#include "amiloc.h"
 #include "dash.h"
 #include "icons.h"
 #include "edit.h"
@@ -48,7 +49,7 @@ extern struct DosLibrary *DOSBase;
 struct IntuitionBase *IntuitionBase = NULL;
 struct Library *MUIMasterBase = NULL;
 
-const char *VERSTAG = "$VER: AmiHomeassist 0.5 (11.8.2026)";
+const char *VERSTAG = "$VER: AmiHomeassist 0.6 (31.8.2026)";
 
 enum {
     ID_REFRESH = 1, ID_PAGE,
@@ -137,16 +138,16 @@ static const char *binary_text(const struct Entity *e)
     if (strcmp(e->dclass, "window") == 0 || strcmp(e->dclass, "door") == 0 ||
         strcmp(e->dclass, "opening") == 0 ||
         strcmp(e->dclass, "garage_door") == 0) {
-        return on ? "offen" : "zu";
+        return on ? GetStr(MSG_STATE_OPEN) : GetStr(MSG_STATE_CLOSED);
     }
     if (strcmp(e->dclass, "motion") == 0 ||
         strcmp(e->dclass, "occupancy") == 0) {
-        return on ? "Bewegung" : "ruhig";
+        return on ? GetStr(MSG_STATE_MOTION) : GetStr(MSG_STATE_QUIET);
     }
     if (strcmp(e->dclass, "moisture") == 0) {
-        return on ? "nass" : "trocken";
+        return on ? GetStr(MSG_STATE_WET) : GetStr(MSG_STATE_DRY);
     }
-    return on ? "an" : "aus";
+    return on ? GetStr(MSG_STATE_ON) : GetStr(MSG_STATE_OFF);
 }
 
 /* cover meldet open/closed/opening/closing. "offen" allein sagt bei einem
@@ -159,8 +160,8 @@ static const char *cover_text(const struct Entity *e)
 
     if (stricmp(e->state, "open") == 0)         wort = "offen";
     else if (stricmp(e->state, "closed") == 0)  wort = "zu";
-    else if (stricmp(e->state, "opening") == 0) wort = "faehrt auf";
-    else if (stricmp(e->state, "closing") == 0) wort = "faehrt zu";
+    else if (stricmp(e->state, "opening") == 0) wort = GetStr(MSG_STATE_OPENING);
+    else if (stricmp(e->state, "closing") == 0) wort = GetStr(MSG_STATE_CLOSING);
     else                                        wort = e->state;
 
     if (e->pos >= 0 && e->pos <= 100) {
@@ -311,7 +312,7 @@ static Object *build_widget(struct Widget *w)
             MUIA_Group_Horiz, TRUE,
             MUIA_Group_Child, label_obj(w->label),
             MUIA_Group_Child, MUI_NewObject(MUIC_Text,
-                MUIA_Text_Contents, "\33rfehlt",
+                MUIA_Text_Contents, (char *)GetStr(MSG_STATE_MISSING),
                 TAG_DONE),
             TAG_DONE);
     }
@@ -357,9 +358,9 @@ static Object *build_widget(struct Widget *w)
             break;
 
         case WK_COVER: {
-            Object *b_up   = MUI_MakeObject(MUIO_Button, "Auf");
-            Object *b_stop = MUI_MakeObject(MUIO_Button, "Stop");
-            Object *b_down = MUI_MakeObject(MUIO_Button, "Zu");
+            Object *b_up   = MUI_MakeObject(MUIO_Button, (char *)GetStr(MSG_COVER_UP));
+            Object *b_stop = MUI_MakeObject(MUIO_Button, (char *)GetStr(MSG_COVER_STOP));
+            Object *b_down = MUI_MakeObject(MUIO_Button, (char *)GetStr(MSG_COVER_DOWN));
 
             /* Der Zustandstext zeigt offen/geschlossen/faehrt. */
             ctl = MUI_NewObject(MUIC_Text,
@@ -507,9 +508,7 @@ static void pages_build(void)
     if (g_dash.count == 0) {
         DoMethod(grp_pages, OM_ADDMEMBER, MUI_NewObject(MUIC_Text,
             MUIA_Text_Contents,
-            "\33cNoch keine Dashboards.\n\n"
-            "Unter Auswahl Geraete uebernehmen -\n"
-            "daraus entsteht je Raum eine Seite.",
+            GetStr(MSG_EMPTY_DASH),
             TAG_DONE));
     } else {
         for (i = 0; i < g_dash.count; i++) {
@@ -620,7 +619,7 @@ static void refresh_states(void)
 
 static void status_summary(void)
 {
-    sayf(txt_status, "%ld Geraete auf %ld Seiten",
+    sayf(txt_status, GetStr(MSG_STATUS_DEVICES),
          (long)catalog_selected_count(&g_cat), (long)g_dash.count);
 }
 
@@ -660,7 +659,7 @@ static void selection_restore(void)
 
 static void sel_count_show(void)
 {
-    sayf(txt_sel, "%ld von %ld ausgewaehlt",
+    sayf(txt_sel, GetStr(MSG_STATUS_SELECTED),
          (long)catalog_selected_count(&g_cat), (long)g_cat.count);
 }
 
@@ -669,7 +668,7 @@ static void sel_fill(void)
     int i;
 
     if (!sel_ensure(g_cat.count)) {
-        say(txt_sel, "zu wenig Speicher");
+        say(txt_sel, GetStr(MSG_ERR_NOMEM));
         return;
     }
 
@@ -927,7 +926,7 @@ static void reload_all(BOOL fetch)
     int found = 0;
 
     if (fetch) {
-        say(txt_status, "Frage Home Assistant ab ...");
+        say(txt_status, GetStr(MSG_STATUS_QUERYING));
         selection_remember();
         {
             int before = g_cat.count;
@@ -967,16 +966,22 @@ int main(void)
     Object *bt_refresh, *bt_sel, *bt_prefs, *bt_edit;
     Object *bt_all, *bt_none, *bt_suggest, *bt_apply, *bt_save;
 
+    /* Zuerst die Sprache - danach ist jede Meldung uebersetzt, auch die
+     * beiden Fehlermeldungen gleich hier drunter. */
+    locale_open();
+
     IntuitionBase = (struct IntuitionBase *)
                         OpenLibrary("intuition.library", 37);
     if (!IntuitionBase) {
-        printf("intuition.library laesst sich nicht oeffnen\n");
+        printf("%s\n", GetStr(MSG_ERR_NOINTUITION));
+        locale_close();
         return 20;
     }
     MUIMasterBase = OpenLibrary(MUIMASTER_NAME, MUIMASTER_VMIN);
     if (!MUIMasterBase) {
-        printf("muimaster.library laesst sich nicht oeffnen - MUI installiert?\n");
+        printf("%s\n", GetStr(MSG_ERR_NOMUI));
         CloseLibrary((struct Library *)IntuitionBase);
+        locale_close();
         return 20;
     }
 
@@ -989,7 +994,7 @@ int main(void)
         MUIA_Application_Version,     (char *)VERSTAG,
         MUIA_Application_Copyright,   "2026",
         MUIA_Application_Author,      "Radi",
-        MUIA_Application_Description, "Home Assistant vom Amiga aus schalten",
+        MUIA_Application_Description, (char *)GetStr(MSG_APP_DESCRIPTION),
         MUIA_Application_Base,        "AMIHOMEASSIST",
 
         MUIA_Application_Window, win = MUI_NewObject(MUIC_Window,
@@ -1052,10 +1057,10 @@ int main(void)
 
                 MUIA_Group_Child, MUI_NewObject(MUIC_Group,
                     MUIA_Group_Horiz, TRUE,
-                    MUIA_Group_Child, bt_refresh = button("_Aktualisieren"),
-                    MUIA_Group_Child, bt_sel     = button("A_uswahl ..."),
-                    MUIA_Group_Child, bt_edit    = button("_Bearbeiten ..."),
-                    MUIA_Group_Child, bt_prefs   = button("_Einstellungen ..."),
+                    MUIA_Group_Child, bt_refresh = button((char *)GetStr(MSG_BT_REFRESH)),
+                    MUIA_Group_Child, bt_sel     = button((char *)GetStr(MSG_BT_SELECT)),
+                    MUIA_Group_Child, bt_edit    = button((char *)GetStr(MSG_BT_EDIT)),
+                    MUIA_Group_Child, bt_prefs   = button((char *)GetStr(MSG_BT_PREFS)),
                     TAG_DONE),
 
                 MUIA_Group_Child, MUI_NewObject(MUIC_Group,
@@ -1069,14 +1074,14 @@ int main(void)
             TAG_DONE),
 
         MUIA_Application_Window, win_sel = MUI_NewObject(MUIC_Window,
-            MUIA_Window_Title,  "Geraete auswaehlen",
+            MUIA_Window_Title,  (char *)GetStr(MSG_WIN_SELECT),
             MUIA_Window_ID,     MAKE_ID('A','H','A','2'),
             MUIA_Window_Width,  MUIV_Window_Width_Visible(45),
             MUIA_Window_Height, MUIV_Window_Height_Visible(65),
             MUIA_Window_RootObject, MUI_NewObject(MUIC_Group,
                 MUIA_Group_Child, MUI_NewObject(MUIC_Text,
                     MUIA_Text_Contents,
-                    "Ein Klick auf eine Zeile nimmt sie auf oder heraus.",
+                    (char *)GetStr(MSG_HINT_SELECT),
                     TAG_DONE),
                 MUIA_Group_Child, MUI_NewObject(MUIC_NListview,
                     MUIA_NListview_NList, lst_sel = MUI_NewObject(MUIC_NList,
@@ -1085,9 +1090,9 @@ int main(void)
                     TAG_DONE),
                 MUIA_Group_Child, MUI_NewObject(MUIC_Group,
                     MUIA_Group_Horiz, TRUE,
-                    MUIA_Group_Child, bt_suggest = button("_Vorschlag"),
-                    MUIA_Group_Child, bt_all     = button("A_lle"),
-                    MUIA_Group_Child, bt_none    = button("_Keine"),
+                    MUIA_Group_Child, bt_suggest = button((char *)GetStr(MSG_BT_SUGGEST)),
+                    MUIA_Group_Child, bt_all     = button((char *)GetStr(MSG_BT_ALL)),
+                    MUIA_Group_Child, bt_none    = button((char *)GetStr(MSG_BT_NONE)),
                     TAG_DONE),
                 MUIA_Group_Child, MUI_NewObject(MUIC_Group,
                     MUIA_Group_Horiz, TRUE,
@@ -1095,31 +1100,31 @@ int main(void)
                         MUIA_Text_Contents, "",
                         MUIA_Frame,         MUIV_Frame_Text,
                         TAG_DONE),
-                    MUIA_Group_Child, bt_apply = button("_Uebernehmen"),
+                    MUIA_Group_Child, bt_apply = button((char *)GetStr(MSG_BT_APPLY)),
                     TAG_DONE),
                 TAG_DONE),
             TAG_DONE),
 
         MUIA_Application_Window, win_prefs = MUI_NewObject(MUIC_Window,
-            MUIA_Window_Title,  "Einstellungen",
+            MUIA_Window_Title,  (char *)GetStr(MSG_WIN_PREFS),
             MUIA_Window_ID,     MAKE_ID('A','H','A','3'),
             MUIA_Window_RootObject, MUI_NewObject(MUIC_Group,
                 MUIA_Group_Child, MUI_NewObject(MUIC_Group,
                     MUIA_Group_Columns, 2,
                     MUIA_Group_Child, MUI_MakeObject(MUIO_Label,
-                                          (char *)"_Adresse"),
+                                          (char *)GetStr(MSG_LBL_ADDRESS)),
                     MUIA_Group_Child, str_host = MUI_NewObject(MUIC_String,
                         MUIA_String_MaxLen, 160,
                         MUIA_Frame,         MUIV_Frame_String,
                         TAG_DONE),
                     MUIA_Group_Child, MUI_MakeObject(MUIO_Label,
-                                          (char *)"_Token"),
+                                          (char *)GetStr(MSG_LBL_TOKEN)),
                     MUIA_Group_Child, str_token = MUI_NewObject(MUIC_String,
                         MUIA_String_MaxLen, 600,
                         MUIA_Frame,         MUIV_Frame_String,
                         TAG_DONE),
                     MUIA_Group_Child, MUI_MakeObject(MUIO_Label,
-                                          (char *)"_Abstand (s)"),
+                                          (char *)GetStr(MSG_LBL_INTERVAL)),
                     MUIA_Group_Child, str_poll = MUI_NewObject(MUIC_String,
                         MUIA_String_MaxLen, 8,
                         MUIA_String_Accept, "0123456789",
@@ -1128,17 +1133,17 @@ int main(void)
                     TAG_DONE),
                 MUIA_Group_Child, txt_prefs = MUI_NewObject(MUIC_Text,
                     MUIA_Text_Contents,
-                    "Token: in Home Assistant unter Profil, Sicherheit.",
+                    (char *)GetStr(MSG_HINT_TOKEN),
                     MUIA_Frame, MUIV_Frame_Text,
                     TAG_DONE),
-                MUIA_Group_Child, bt_save = button("_Speichern"),
+                MUIA_Group_Child, bt_save = button((char *)GetStr(MSG_BT_SAVE)),
                 TAG_DONE),
             TAG_DONE),
 
         TAG_DONE);
 
     if (!app) {
-        printf("Oberflaeche laesst sich nicht aufbauen.\n");
+        printf("%s\n", GetStr(MSG_ERR_NOGUI));
         CloseLibrary(MUIMasterBase);
         CloseLibrary((struct Library *)IntuitionBase);
         return 20;
@@ -1194,7 +1199,7 @@ int main(void)
     }
 
     while ((id = DoMethod(app, MUIM_Application_NewInput, &sigs))
-                != MUIV_Application_ReturnID_Quit) {
+                != (ULONG)MUIV_Application_ReturnID_Quit) {
 
         {
             BOOL changed = FALSE;
@@ -1304,7 +1309,7 @@ int main(void)
                     if (prefs_save(&g_prefs) != AH_OK) {
                         say(txt_prefs, ha_last_error());
                     } else {
-                        say(txt_prefs, "Gespeichert.");
+                        say(txt_prefs, GetStr(MSG_STATUS_SAVED));
                         g_have_prefs = TRUE;
                         set(win_prefs, MUIA_Window_Open, FALSE);
                         timer_stop();
@@ -1344,5 +1349,6 @@ int main(void)
     catalog_free(&g_cat);
     CloseLibrary(MUIMasterBase);
     CloseLibrary((struct Library *)IntuitionBase);
+    locale_close();
     return 0;
 }

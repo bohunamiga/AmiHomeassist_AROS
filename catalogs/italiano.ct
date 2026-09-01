@@ -1,0 +1,305 @@
+## version $VER: AmiHomeassist.catalog 0.6 (30.08.2026)
+## language italiano
+;
+MSG_BT_REFRESH
+_Aggiorna
+MSG_BT_SELECT
+S_eleziona ...
+MSG_BT_EDIT
+_Modifica ...
+MSG_BT_PREFS
+_Impostazioni ...
+MSG_BT_SUGGEST
+S_uggerisci
+MSG_BT_ALL
+_Tutti
+MSG_BT_NONE
+_Nessuno
+MSG_BT_APPLY
+_Applica
+MSG_BT_SAVE
+_Salva
+MSG_BT_CLOSE
+_Chiudi
+MSG_WIN_SELECT
+Seleziona dispositivi
+MSG_WIN_PREFS
+Impostazioni
+MSG_APP_DESCRIPTION
+Controlla Home Assistant dal tuo Amiga
+MSG_LBL_ADDRESS
+_Indirizzo
+MSG_LBL_TOKEN
+_Token
+MSG_LBL_INTERVAL
+Inter_vallo (s)
+MSG_HINT_TOKEN
+Token: in Home Assistant sotto Profilo, Sicurezza.
+MSG_HINT_SELECT
+Un clic su una riga la aggiunge o la rimuove.
+MSG_STATUS_DEVICES
+%ld dispositivi su %ld pagine
+MSG_STATUS_SELECTED
+%ld di %ld selezionati
+MSG_STATUS_QUERYING
+Interrogazione di Home Assistant ...
+MSG_STATUS_SAVED
+Salvato.
+MSG_ERR_NOMEM
+memoria insufficiente
+MSG_ERR_NOINTUITION
+impossibile aprire intuition.library
+MSG_ERR_NOMUI
+impossibile aprire muimaster.library - MUI è installato?
+MSG_ERR_NOGUI
+impossibile costruire l'interfaccia.
+MSG_EMPTY_DASH
+\33cNessun pannello.\n\nUsa Seleziona per adottare i dispositivi -\nne nasce una pagina per stanza.
+MSG_COVER_UP
+Su
+MSG_COVER_STOP
+Ferma
+MSG_COVER_DOWN
+Giù
+MSG_STATE_OPEN
+aperto
+MSG_STATE_CLOSED
+chiuso
+MSG_STATE_MOTION
+movimento
+MSG_STATE_QUIET
+quiete
+MSG_STATE_WET
+bagnato
+MSG_STATE_DRY
+asciutto
+MSG_STATE_ON
+acceso
+MSG_STATE_OFF
+spento
+MSG_STATE_OPENING
+in apertura
+MSG_STATE_CLOSING
+in chiusura
+MSG_STATE_MISSING
+\33rassente
+MSG_GROUP_SWITCHES
+Interruttori
+MSG_GROUP_OPENINGS
+Porte e finestre
+MSG_GROUP_READINGS
+Misure
+MSG_GROUP_COVERS
+Tapparelle
+MSG_CLI_ERROR
+Errore: %s\n
+MSG_CLI_ENTRIES
+\n%d di %d voci
+MSG_CLI_HIDDEN
+, %d nascoste (usa ALL per vederle)
+MSG_CLI_CATALOG
+Catalogo: %d voci, %d adottate\n\n
+MSG_CLI_NOTHING
+Nulla adottato - selezionane prima nell'interfaccia.\n
+MSG_CLI_CREATED
+create: %d pagine da %d dispositivi adottati\n
+MSG_CLI_WRITEFAIL
+Scrittura fallita.\n
+MSG_CLI_READFAIL
+Lettura fallita.\n
+MSG_CLI_READBACK
+rilette: %d pagine\n\n
+MSG_CLI_ICON
+%s  (simbolo %d)\n
+MSG_CLI_POLLED
+\nda interrogare a intervalli: %d dispositivi\n
+MSG_CLI_PREFSSAVED
+Impostazioni salvate.\n
+MSG_ERR_NONE
+nessun errore
+MSG_ERR_NOPREFS
+impostazioni non trovate (ENVARC:AmiHomeassist/AmiHomeassist.prefs)
+MSG_ERR_NOHOST
+manca host= nelle impostazioni
+MSG_ERR_NOTOKEN
+manca token= nelle impostazioni
+MSG_ERR_PREFSWRITE
+impossibile scrivere le impostazioni
+MSG_ERR_IMPORTWRITE
+impossibile scrivere l'elenco dei dispositivi adottati
+MSG_ERR_NOSOCKET
+bsdsocket.library non disponibile - lo stack TCP è attivo?
+MSG_ERR_NORESOLVE
+impossibile risolvere il nome host
+MSG_ERR_SOCKET
+socket() fallita
+MSG_ERR_REFUSED
+connessione rifiutata - Home Assistant è in funzione?
+MSG_ERR_SEND
+invio fallito
+MSG_ERR_RECV
+ricezione fallita
+MSG_ERR_BADRESPONSE
+risposta incomprensibile dal server
+MSG_ERR_NOBODY
+risposta senza corpo
+MSG_ERR_TOKEN401
+Home Assistant rifiuta il token (401)
+MSG_ERR_HTTP
+Home Assistant risponde con HTTP %d
+MSG_ERR_NODEVICES
+Home Assistant non restituisce dispositivi
+MSG_ERR_NOMEMLIST
+memoria insufficiente per l'elenco dei dispositivi
+MSG_ERR_BADENTITY
+ID entità inutilizzabile
+MSG_FILE_PREFS_HEAD
+; AmiHomeassist - impostazioni\n
+MSG_FILE_PREFS_NOTE
+; Le righe che iniziano con ; sono commenti. Formato: chiave=valore\n\n
+MSG_FILE_PREFS_POLL
+\n; Intervallo dell'interrogazione di stato, in secondi\n
+MSG_FILE_IMPORT_HEAD
+; AmiHomeassist - dispositivi adottati, un ID per riga\n
+MSG_FILE_DASH_HEAD
+; AmiHomeassist - pannelli\n
+MSG_FILE_DASH_NOTE
+; Scritto dall'editor. Modificabile a mano, se serve:\n
+MSG_FILE_DASH_KINDS
+; Tipi: toggle lamp value gauge cover text\n\n
+MSG_ED_TITLE
+Modifica pannelli
+MSG_ED_ADDDEVICE
+Aggiungi dispositivo
+MSG_ED_PAGES
+\33cPagine
+MSG_ED_CONTENT
+\33cContenuto della pagina
+MSG_ED_SELECTED
+Selezione
+MSG_ED_NEW
+Nuovo
+MSG_ED_REMOVE
+Togli
+MSG_ED_UP
+Su
+MSG_ED_DOWN
+Giù
+MSG_ED_GROUP
+Gruppo
+MSG_ED_DEVICE
+Dispositivo ...
+MSG_ED_RENAME
+Rinomina
+MSG_ED_SET
+imposta
+MSG_ED_ADD
+_Aggiungi
+MSG_ED_LBL_NAME
+_Nome
+MSG_ED_LBL_ICON
+S_imbolo
+MSG_ED_LBL_KIND
+_Tipo
+MSG_ED_NEWPAGE
+Nuova pagina
+MSG_ED_NEWGROUP
+Nuovo gruppo
+MSG_ED_DEVICES
+Dispositivi
+MSG_KIND_TOGGLE
+Interruttore
+MSG_KIND_LAMP
+Spia
+MSG_KIND_VALUE
+Numero
+MSG_KIND_GAUGE
+Barra
+MSG_KIND_COVER
+Tapparella
+MSG_KIND_TEXT
+Testo
+MSG_ICON_OFFICE
+Ufficio
+MSG_ICON_BATH
+Bagno
+MSG_ICON_ATTIC
+Soffitta
+MSG_ICON_GARAGE
+Garage
+MSG_ICON_GARDEN
+Giardino
+MSG_ICON_CELLAR
+Cantina
+MSG_ICON_KITCHEN
+Cucina
+MSG_ICON_BEDROOM
+Camera da letto
+MSG_ICON_TOILET
+Bagno di servizio
+MSG_ICON_STAIRS
+Scale
+MSG_ICON_LAUNDRY
+Lavanderia
+MSG_ICON_LIVING
+Soggiorno
+MSG_ICON_NOAREA
+Senza stanza
+MSG_ICON_HOUSE
+Casa
+MSG_ICON_OVERVIEW
+Panoramica
+MSG_ICON_ENERGY
+Energia
+MSG_ICON_SOLAR
+Solare
+MSG_ICON_BATTERY
+Batteria
+MSG_ICON_TEMPERATURE
+Temperatura
+MSG_ICON_HUMIDITY
+Umidità
+MSG_ICON_WEATHER
+Meteo
+MSG_ICON_LIGHT
+Luce
+MSG_ICON_SOCKET
+Presa
+MSG_ICON_WINDOW
+Finestra
+MSG_ICON_DOOR
+Porta
+MSG_ICON_LOCK
+Serratura
+MSG_ICON_SECURITY
+Sicurezza
+MSG_ICON_CAR
+Auto
+MSG_ICON_TV
+Televisione
+MSG_ICON_MUSIC
+Musica
+MSG_ICON_NETWORK
+Rete
+MSG_ICON_BLIND
+Tapparella
+MSG_ICON_FAN
+Ventilatore
+MSG_ICON_TIME
+Ora
+MSG_ICON_TOOL
+Utensile
+MSG_ICON_PRINTER
+Stampante
+MSG_CLI_SETUPHINT
+\nConfiguralo così:\n
+MSG_CLI_SETUPCMD
+  AmiHomeassist HOST=http://homeassistant:8123 TOKEN=<il-tuo-token> SAVE\n
+MSG_CLI_TURNEDON
+acceso
+MSG_CLI_TURNEDOFF
+spento
+MSG_CLI_TOGGLED
+commutato
+MSG_ERR_NOHTTPS
+https non è supportato - usa http://

@@ -23,8 +23,7 @@ import sys
 
 from PIL import Image
 
-# Das Logo liegt nicht bei - es gehoert dem Home-Assistant-Projekt.
-# Zu holen von https://www.home-assistant.io/ und hier daneben legen.
+# Quellbild: das Home-Assistant-Logo als WebP, danebengelegt.
 SRC = "HA_Logo.webp"
 SIZE = 48          # Workbench-Icon
 LOGO_SIZE = 72     # das Logo im Fenster

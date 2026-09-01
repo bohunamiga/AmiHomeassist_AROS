@@ -16,12 +16,13 @@
 #include <string.h>
 
 #include "amiha.h"
+#include "amiloc.h"
 #include "dash.h"
 
 /* siehe amiha.c: netinclude verdeckt SAS/Cs proto/dos.h */
 extern struct DosLibrary *DOSBase;
 
-const char *VERSTAG = "$VER: AmiHomeassist 0.5 (11.8.2026)";
+const char *VERSTAG = "$VER: AmiHomeassist 0.6 (31.8.2026)";
 
 #define TEMPLATE "ALL/S,DOMAIN/K,ON/K,OFF/K,TOGGLE/K,STATES/S,DASH/S,HOST/K,TOKEN/K,SAVE/S"
 
@@ -47,7 +48,7 @@ static void print_list(struct Prefs *p, BOOL show_all, const char *domain)
 
     rc = catalog_fetch(p, &g_cat);
     if (rc != AH_OK) {
-        printf("Fehler: %s\n", ha_last_error());
+        printf(GetStr(MSG_CLI_ERROR), ha_last_error());
         return;
     }
     catalog_sort(&g_cat);
@@ -84,9 +85,9 @@ static void print_list(struct Prefs *p, BOOL show_all, const char *domain)
         shown++;
     }
 
-    printf("\n%d von %d Eintraegen", shown, g_cat.count);
+    printf(GetStr(MSG_CLI_ENTRIES), shown, g_cat.count);
     if (hidden) {
-        printf(", %d ausgeblendet (mit ALL sichtbar)", hidden);
+        printf(GetStr(MSG_CLI_HIDDEN), hidden);
     }
     printf("\n");
 }
@@ -99,23 +100,23 @@ static void print_states(struct Prefs *p)
 
     rc = catalog_fetch(p, &g_cat);
     if (rc != AH_OK) {
-        printf("Fehler: %s\n", ha_last_error());
+        printf(GetStr(MSG_CLI_ERROR), ha_last_error());
         return;
     }
     catalog_sort(&g_cat);
     import_load(&g_cat, &found);
     n = catalog_selected_count(&g_cat);
 
-    printf("Katalog: %d Eintraege, davon %d uebernommen\n\n",
+    printf(GetStr(MSG_CLI_CATALOG),
            g_cat.count, n);
     if (n == 0) {
-        printf("Nichts uebernommen - erst in der Oberflaeche auswaehlen.\n");
+        printf("%s", GetStr(MSG_CLI_NOTHING));
         return;
     }
 
     rc = states_refresh(p, &g_cat);
     if (rc != AH_OK) {
-        printf("Fehler: %s\n", ha_last_error());
+        printf(GetStr(MSG_CLI_ERROR), ha_last_error());
         return;
     }
 
@@ -141,7 +142,7 @@ static void do_dash(struct Prefs *p)
 
     rc = catalog_fetch(p, &g_cat);
     if (rc != AH_OK) {
-        printf("Fehler: %s\n", ha_last_error());
+        printf(GetStr(MSG_CLI_ERROR), ha_last_error());
         return;
     }
     catalog_sort(&g_cat);
@@ -149,11 +150,11 @@ static void do_dash(struct Prefs *p)
 
     dash_init(&d);
     dash_generate(&d, &g_cat);
-    printf("erzeugt: %d Seiten aus %d uebernommenen Geraeten\n",
+    printf(GetStr(MSG_CLI_CREATED),
            d.count, catalog_selected_count(&g_cat));
 
     if (dash_save(&d) != AH_OK) {
-        printf("Fehler beim Schreiben.\n");
+        printf("%s", GetStr(MSG_CLI_WRITEFAIL));
         dash_free(&d);
         return;
     }
@@ -161,13 +162,13 @@ static void do_dash(struct Prefs *p)
 
     dash_init(&d);
     if (dash_load(&d) != AH_OK) {
-        printf("Fehler beim Lesen.\n");
+        printf("%s", GetStr(MSG_CLI_READFAIL));
         return;
     }
-    printf("zurueckgelesen: %d Seiten\n\n", d.count);
+    printf(GetStr(MSG_CLI_READBACK), d.count);
 
     for (i = 0; i < d.count; i++) {
-        printf("%s  (Symbol %d)\n", d.p[i].title, d.p[i].icon);
+        printf(GetStr(MSG_CLI_ICON), d.p[i].title, d.p[i].icon);
         for (j = 0; j < d.p[i].count; j++) {
             printf("  [%s]\n", d.p[i].g[j].title);
             for (k = 0; k < d.p[i].g[j].count; k++) {
@@ -185,7 +186,7 @@ static void do_dash(struct Prefs *p)
     }
 
     dash_mark_used(&d, &g_cat);
-    printf("\nim Takt abzufragen: %d Geraete\n",
+    printf(GetStr(MSG_CLI_POLLED),
            catalog_selected_count(&g_cat));
     dash_free(&d);
 }
@@ -196,7 +197,7 @@ static void do_service(struct Prefs *p, const char *entity, const char *service,
     if (ha_service(p, entity, service) == AH_OK) {
         printf("%s: %s\n", entity, wort);
     } else {
-        printf("Fehler: %s\n", ha_last_error());
+        printf(GetStr(MSG_CLI_ERROR), ha_last_error());
     }
 }
 
@@ -209,10 +210,12 @@ int main(void)
 
     memset(args, 0, sizeof(args));
     catalog_init(&g_cat);
+    locale_open();
 
     rda = ReadArgs((STRPTR)TEMPLATE, args, NULL);
     if (!rda) {
         PrintFault(IoErr(), (STRPTR)"AmiHomeassist");
+        locale_close();
         return RETURN_FAIL;
     }
 
@@ -255,28 +258,28 @@ int main(void)
 
         if (args[ARG_SAVE]) {
             if (prefs_save(&prefs) == AH_OK) {
-                printf("Einstellungen gespeichert.\n");
+                printf("%s", GetStr(MSG_CLI_PREFSSAVED));
             } else {
-                printf("Fehler: %s\n", ha_last_error());
+                printf(GetStr(MSG_CLI_ERROR), ha_last_error());
             }
         }
     }
 
     if (rc != AH_OK) {
-        printf("Fehler: %s\n", ha_last_error());
-        printf("\nEinrichten zum Beispiel so:\n");
-        printf("  AmiHomeassist HOST=http://homeassistant:8123 "
-               "TOKEN=<dein-token> SAVE\n");
+        printf(GetStr(MSG_CLI_ERROR), ha_last_error());
+        printf("%s", GetStr(MSG_CLI_SETUPHINT));
+        printf("%s", GetStr(MSG_CLI_SETUPCMD));
         FreeArgs(rda);
+        locale_close();
         return RETURN_FAIL;
     }
 
     if (args[ARG_ON]) {
-        do_service(&prefs, (char *)args[ARG_ON], "turn_on", "eingeschaltet");
+        do_service(&prefs, (char *)args[ARG_ON], "turn_on", GetStr(MSG_CLI_TURNEDON));
     } else if (args[ARG_OFF]) {
-        do_service(&prefs, (char *)args[ARG_OFF], "turn_off", "ausgeschaltet");
+        do_service(&prefs, (char *)args[ARG_OFF], "turn_off", GetStr(MSG_CLI_TURNEDOFF));
     } else if (args[ARG_TOGGLE]) {
-        do_service(&prefs, (char *)args[ARG_TOGGLE], "toggle", "umgeschaltet");
+        do_service(&prefs, (char *)args[ARG_TOGGLE], "toggle", GetStr(MSG_CLI_TOGGLED));
     } else if (args[ARG_STATES]) {
         print_states(&prefs);
     } else if (args[ARG_DASH]) {
@@ -288,5 +291,6 @@ int main(void)
 
     catalog_free(&g_cat);
     FreeArgs(rda);
+    locale_close();
     return RETURN_OK;
 }

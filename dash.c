@@ -10,6 +10,7 @@
 #include <ctype.h>
 
 #include "amiha.h"
+#include "amiloc.h"
 #include "dash.h"
 
 extern struct DosLibrary *DOSBase;
@@ -272,11 +273,39 @@ int widget_kind_for(const struct Entity *e, long *min, long *max)
 
 /* Die Reihenfolge muss zur Liste ICONS in mdi.py passen. Unbekannte Raeume
  * bekommen das Haus. */
-static const char *AREA_ICON[] = {
-    "Buero", "Bad", "Dachboden", "Garage", "Garten", "Keller", "Kueche",
-    "Schlafzimmer", "Toilette", "Treppe", "Waschkueche", "Wohnzimmer"
+/* SPRACHUNABHAENGIG - hier NICHT die Katalogsprache einsetzen.
+ *
+ * Verglichen wird gegen die Raumnamen, die aus Home Assistant kommen, und
+ * die stehen in der Sprache des Nutzers - unabhaengig davon, welche
+ * Sprache Workbench hat. Ein deutsches Home Assistant an einem englischen
+ * Workbench muss weiter passende Symbole bekommen. Die Liste wird deshalb
+ * ERWEITERT, nie ausgetauscht: je Symbol ein Eintrag je Sprache, alle
+ * werden der Reihe nach probiert.
+ *
+ * Erster Treffer gewinnt, also darf ein Wort nicht in zwei Zeilen stehen.
+ */
+struct AreaWord { const char *word; short icon; };
+
+static const struct AreaWord AREA_ICON[] = {
+    /* deutsch */
+    {"Buero", 0}, {"Bad", 1}, {"Dachboden", 2}, {"Garage", 3},
+    {"Garten", 4}, {"Keller", 5}, {"Kueche", 6}, {"Schlafzimmer", 7},
+    {"Toilette", 8}, {"Treppe", 9}, {"Waschkueche", 10}, {"Wohnzimmer", 11},
+    /* english */
+    {"Office", 0}, {"Bathroom", 1}, {"Attic", 2}, {"Loft", 2},
+    {"Garden", 4}, {"Yard", 4}, {"Cellar", 5}, {"Basement", 5},
+    {"Kitchen", 6}, {"Bedroom", 7}, {"Toilet", 8}, {"Stairs", 9},
+    {"Hallway", 9}, {"Laundry", 10}, {"Living room", 11}, {"Lounge", 11},
+    /* italiano */
+    {"Ufficio", 0}, {"Bagno", 1}, {"Soffitta", 2}, {"Giardino", 4},
+    {"Cantina", 5}, {"Cucina", 6}, {"Camera", 7}, {"Camera da letto", 7},
+    {"Scale", 9}, {"Lavanderia", 10}, {"Soggiorno", 11}, {"Salotto", 11},
+    /* español */
+    {"Oficina", 0}, {"Despacho", 0}, {"Bano", 1}, {"Desvan", 2},
+    {"Jardin", 4}, {"Sotano", 5}, {"Cocina", 6}, {"Dormitorio", 7},
+    {"Aseo", 8}, {"Escalera", 9}, {"Lavadero", 10}, {"Salon", 11}
 };
-#define AREA_ICON_COUNT 12
+#define AREA_ICON_COUNT ((int)(sizeof(AREA_ICON) / sizeof(AREA_ICON[0])))
 #define ICON_NOAREA     12
 #define ICON_FALLBACK   13
 
@@ -321,8 +350,8 @@ int icon_for_area(const char *area)
         return ICON_NOAREA;
     }
     for (i = 0; i < AREA_ICON_COUNT; i++) {
-        if (area_matches(area, AREA_ICON[i])) {
-            return i;
+        if (area_matches(area, AREA_ICON[i].word)) {
+            return AREA_ICON[i].icon;
         }
     }
     return ICON_FALLBACK;
@@ -331,14 +360,23 @@ int icon_for_area(const char *area)
 /* Innerhalb eines Raums nach Art gruppieren. Alles in einen Topf zu werfen
  * ergibt bei einem Raum mit Lampen, Fenstern und Messwerten eine
  * unuebersichtliche Wand; getrennt liest es sich von selbst. */
-static const char *KIND_GROUP[WK_COUNT] = {
-    "Schalter",            /* WK_TOGGLE */
-    "Fenster und Tueren",  /* WK_LAMP   */
-    "Messwerte",           /* WK_VALUE  */
-    "Messwerte",           /* WK_GAUGE  */
-    "Rollaeden",           /* WK_COVER  */
-    ""                     /* WK_TEXT   */
-};
+/* Als Funktion, nicht als Feld: GetStr() ist kein konstanter Ausdruck.
+ * Der Titel wandert beim Anlegen einer Seite in die Dashboard-Datei, ist
+ * also ab dann fest - wer spaeter die Sprache wechselt, behaelt seine
+ * bestehenden Gruppentitel und kann sie im Editor umbenennen. */
+static const char *kind_group(int kind)
+{
+    static const short ID[WK_COUNT] = {
+        MSG_GROUP_SWITCHES,    /* WK_TOGGLE */
+        MSG_GROUP_OPENINGS,    /* WK_LAMP   */
+        MSG_GROUP_READINGS,    /* WK_VALUE  */
+        MSG_GROUP_READINGS,    /* WK_GAUGE  */
+        MSG_GROUP_COVERS,      /* WK_COVER  */
+        -1                     /* WK_TEXT - ohne Ueberschrift */
+    };
+
+    return (ID[kind] < 0) ? "" : GetStr(ID[kind]);
+}
 
 /* Reihenfolge der Kaesten auf einer Seite. */
 static const int KIND_ORDER[5] = { WK_TOGGLE, WK_COVER, WK_LAMP, WK_VALUE,
@@ -395,13 +433,13 @@ void dash_generate(struct Dash *d, struct Catalog *c)
                     int g;
 
                     for (g = 0; g < page->count; g++) {
-                        if (strcmp(page->g[g].title, KIND_GROUP[kind]) == 0) {
+                        if (strcmp(page->g[g].title, kind_group(kind)) == 0) {
                             grp = &page->g[g];
                             break;
                         }
                     }
                     if (!grp) {
-                        grp = page_add_group(page, KIND_GROUP[kind]);
+                        grp = page_add_group(page, kind_group(kind));
                         if (!grp) {
                             return;
                         }
@@ -502,12 +540,12 @@ int dash_save(struct Dash *d)
         return AH_ENOPREFS;
     }
 
-    FPrintf(fh, "; AmiHomeassist - Dashboards\n");
-    FPrintf(fh, "; Vom Editor geschrieben. Von Hand aenderbar, wenn noetig:\n");
+    FPrintf(fh, "%s", (LONG)(ULONG)GetStr(MSG_FILE_DASH_HEAD));
+    FPrintf(fh, "%s", (LONG)(ULONG)GetStr(MSG_FILE_DASH_NOTE));
     FPrintf(fh, ";   page \"Titel\" icon <n> ... end\n");
     FPrintf(fh, ";   group \"Titel\" ... end\n");
     FPrintf(fh, ";   <art> <entity> \"Beschriftung\" [min max]\n");
-    FPrintf(fh, "; Arten: toggle lamp value gauge cover text\n\n");
+    FPrintf(fh, "%s", (LONG)(ULONG)GetStr(MSG_FILE_DASH_KINDS));
 
     for (i = 0; i < d->count; i++) {
         struct Page *p = &d->p[i];

@@ -1,0 +1,305 @@
+## version $VER: AmiHomeassist.catalog 0.6 (30.08.2026)
+## language español
+;
+MSG_BT_REFRESH
+_Actualizar
+MSG_BT_SELECT
+S_eleccionar ...
+MSG_BT_EDIT
+_Editar ...
+MSG_BT_PREFS
+A_justes ...
+MSG_BT_SUGGEST
+S_ugerir
+MSG_BT_ALL
+_Todos
+MSG_BT_NONE
+_Ninguno
+MSG_BT_APPLY
+A_plicar
+MSG_BT_SAVE
+_Guardar
+MSG_BT_CLOSE
+_Cerrar
+MSG_WIN_SELECT
+Seleccionar dispositivos
+MSG_WIN_PREFS
+Ajustes
+MSG_APP_DESCRIPTION
+Controla Home Assistant desde tu Amiga
+MSG_LBL_ADDRESS
+_Dirección
+MSG_LBL_TOKEN
+_Token
+MSG_LBL_INTERVAL
+_Intervalo (s)
+MSG_HINT_TOKEN
+Token: en Home Assistant bajo Perfil, Seguridad.
+MSG_HINT_SELECT
+Un clic en una fila la añade o la quita.
+MSG_STATUS_DEVICES
+%ld dispositivos en %ld páginas
+MSG_STATUS_SELECTED
+%ld de %ld seleccionados
+MSG_STATUS_QUERYING
+Consultando Home Assistant ...
+MSG_STATUS_SAVED
+Guardado.
+MSG_ERR_NOMEM
+memoria insuficiente
+MSG_ERR_NOINTUITION
+no se puede abrir intuition.library
+MSG_ERR_NOMUI
+no se puede abrir muimaster.library - ¿está MUI instalado?
+MSG_ERR_NOGUI
+no se puede construir la interfaz.
+MSG_EMPTY_DASH
+\33cAún no hay paneles.\n\nUsa Seleccionar para adoptar dispositivos -\nasí nace una página por habitación.
+MSG_COVER_UP
+Subir
+MSG_COVER_STOP
+Parar
+MSG_COVER_DOWN
+Bajar
+MSG_STATE_OPEN
+abierto
+MSG_STATE_CLOSED
+cerrado
+MSG_STATE_MOTION
+movimiento
+MSG_STATE_QUIET
+en calma
+MSG_STATE_WET
+mojado
+MSG_STATE_DRY
+seco
+MSG_STATE_ON
+encendido
+MSG_STATE_OFF
+apagado
+MSG_STATE_OPENING
+abriendo
+MSG_STATE_CLOSING
+cerrando
+MSG_STATE_MISSING
+\33rausente
+MSG_GROUP_SWITCHES
+Interruptores
+MSG_GROUP_OPENINGS
+Puertas y ventanas
+MSG_GROUP_READINGS
+Medidas
+MSG_GROUP_COVERS
+Persianas
+MSG_CLI_ERROR
+Error: %s\n
+MSG_CLI_ENTRIES
+\n%d de %d entradas
+MSG_CLI_HIDDEN
+, %d ocultas (usa ALL para verlas)
+MSG_CLI_CATALOG
+Catálogo: %d entradas, %d adoptadas\n\n
+MSG_CLI_NOTHING
+Nada adoptado - selecciona primero en la interfaz.\n
+MSG_CLI_CREATED
+creadas: %d páginas de %d dispositivos adoptados\n
+MSG_CLI_WRITEFAIL
+Fallo al escribir.\n
+MSG_CLI_READFAIL
+Fallo al leer.\n
+MSG_CLI_READBACK
+releídas: %d páginas\n\n
+MSG_CLI_ICON
+%s  (símbolo %d)\n
+MSG_CLI_POLLED
+\na consultar por intervalos: %d dispositivos\n
+MSG_CLI_PREFSSAVED
+Ajustes guardados.\n
+MSG_ERR_NONE
+sin error
+MSG_ERR_NOPREFS
+no se encontraron ajustes (ENVARC:AmiHomeassist/AmiHomeassist.prefs)
+MSG_ERR_NOHOST
+falta host= en los ajustes
+MSG_ERR_NOTOKEN
+falta token= en los ajustes
+MSG_ERR_PREFSWRITE
+no se pueden escribir los ajustes
+MSG_ERR_IMPORTWRITE
+no se puede escribir la lista de dispositivos adoptados
+MSG_ERR_NOSOCKET
+bsdsocket.library no disponible - ¿está activa la pila TCP?
+MSG_ERR_NORESOLVE
+no se puede resolver el nombre del servidor
+MSG_ERR_SOCKET
+socket() falló
+MSG_ERR_REFUSED
+conexión rechazada - ¿está Home Assistant en marcha?
+MSG_ERR_SEND
+fallo al enviar
+MSG_ERR_RECV
+fallo al recibir
+MSG_ERR_BADRESPONSE
+respuesta incomprensible del servidor
+MSG_ERR_NOBODY
+respuesta sin cuerpo
+MSG_ERR_TOKEN401
+Home Assistant rechaza el token (401)
+MSG_ERR_HTTP
+Home Assistant responde con HTTP %d
+MSG_ERR_NODEVICES
+Home Assistant no devuelve dispositivos
+MSG_ERR_NOMEMLIST
+memoria insuficiente para la lista de dispositivos
+MSG_ERR_BADENTITY
+ID de entidad inservible
+MSG_FILE_PREFS_HEAD
+; AmiHomeassist - ajustes\n
+MSG_FILE_PREFS_NOTE
+; Las líneas que empiezan por ; son comentarios. Formato: clave=valor\n\n
+MSG_FILE_PREFS_POLL
+\n; Intervalo de la consulta de estado, en segundos\n
+MSG_FILE_IMPORT_HEAD
+; AmiHomeassist - dispositivos adoptados, un ID por línea\n
+MSG_FILE_DASH_HEAD
+; AmiHomeassist - paneles\n
+MSG_FILE_DASH_NOTE
+; Escrito por el editor. Editable a mano si hace falta:\n
+MSG_FILE_DASH_KINDS
+; Tipos: toggle lamp value gauge cover text\n\n
+MSG_ED_TITLE
+Editar paneles
+MSG_ED_ADDDEVICE
+Añadir dispositivo
+MSG_ED_PAGES
+\33cPáginas
+MSG_ED_CONTENT
+\33cContenido de la página
+MSG_ED_SELECTED
+Selección
+MSG_ED_NEW
+Nuevo
+MSG_ED_REMOVE
+Quitar
+MSG_ED_UP
+Subir
+MSG_ED_DOWN
+Bajar
+MSG_ED_GROUP
+Grupo
+MSG_ED_DEVICE
+Dispositivo ...
+MSG_ED_RENAME
+Renombrar
+MSG_ED_SET
+fijar
+MSG_ED_ADD
+_Añadir
+MSG_ED_LBL_NAME
+_Nombre
+MSG_ED_LBL_ICON
+S_ímbolo
+MSG_ED_LBL_KIND
+_Tipo
+MSG_ED_NEWPAGE
+Página nueva
+MSG_ED_NEWGROUP
+Grupo nuevo
+MSG_ED_DEVICES
+Dispositivos
+MSG_KIND_TOGGLE
+Interruptor
+MSG_KIND_LAMP
+Testigo
+MSG_KIND_VALUE
+Número
+MSG_KIND_GAUGE
+Barra
+MSG_KIND_COVER
+Persiana
+MSG_KIND_TEXT
+Texto
+MSG_ICON_OFFICE
+Oficina
+MSG_ICON_BATH
+Baño
+MSG_ICON_ATTIC
+Desván
+MSG_ICON_GARAGE
+Garaje
+MSG_ICON_GARDEN
+Jardín
+MSG_ICON_CELLAR
+Sótano
+MSG_ICON_KITCHEN
+Cocina
+MSG_ICON_BEDROOM
+Dormitorio
+MSG_ICON_TOILET
+Aseo
+MSG_ICON_STAIRS
+Escalera
+MSG_ICON_LAUNDRY
+Lavadero
+MSG_ICON_LIVING
+Salón
+MSG_ICON_NOAREA
+Sin habitación
+MSG_ICON_HOUSE
+Casa
+MSG_ICON_OVERVIEW
+Resumen
+MSG_ICON_ENERGY
+Energía
+MSG_ICON_SOLAR
+Solar
+MSG_ICON_BATTERY
+Batería
+MSG_ICON_TEMPERATURE
+Temperatura
+MSG_ICON_HUMIDITY
+Humedad
+MSG_ICON_WEATHER
+Tiempo
+MSG_ICON_LIGHT
+Luz
+MSG_ICON_SOCKET
+Enchufe
+MSG_ICON_WINDOW
+Ventana
+MSG_ICON_DOOR
+Puerta
+MSG_ICON_LOCK
+Cerradura
+MSG_ICON_SECURITY
+Seguridad
+MSG_ICON_CAR
+Coche
+MSG_ICON_TV
+Televisión
+MSG_ICON_MUSIC
+Música
+MSG_ICON_NETWORK
+Red
+MSG_ICON_BLIND
+Persiana
+MSG_ICON_FAN
+Ventilador
+MSG_ICON_TIME
+Hora
+MSG_ICON_TOOL
+Herramienta
+MSG_ICON_PRINTER
+Impresora
+MSG_CLI_SETUPHINT
+\nConfigúralo así:\n
+MSG_CLI_SETUPCMD
+  AmiHomeassist HOST=http://homeassistant:8123 TOKEN=<tu-token> SAVE\n
+MSG_CLI_TURNEDON
+encendido
+MSG_CLI_TURNEDOFF
+apagado
+MSG_CLI_TOGGLED
+conmutado
+MSG_ERR_NOHTTPS
+https no es compatible - usa http://
