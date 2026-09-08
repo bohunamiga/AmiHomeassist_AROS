@@ -1,8 +1,8 @@
-AmiHomeassist 0.6
+AmiHomeassist 0.7
 =================
 
   English below, deutsche Fassung weiter unten.
-  Deutsche Fassung ab "AmiHomeassist 0.6 - Deutsch".
+  Deutsche Fassung ab "AmiHomeassist 0.7 - Deutsch".
 
 
 ENGLISH
@@ -80,6 +80,8 @@ WIDGET KINDS
   Number      sensor with its unit
   Bar         sensor with a fixed range, per cent or watts
   Blind       cover - up, stop, down, and the position
+  Thermostat  climate - room and target temperature, warmer, colder,
+              and the operating mode
   Text        a caption
 
   When you add a device the program suggests a kind, from its domain
@@ -214,7 +216,7 @@ BUILDING IT YOURSELF
 
 ================================================================
 
-AmiHomeassist 0.6 - Deutsch
+AmiHomeassist 0.7 - Deutsch
 ===========================
 
 Home Assistant vom Amiga aus: Lampen, Steckdosen, Rollaeden und
@@ -294,6 +296,8 @@ DARSTELLUNGSARTEN
   Zahl        sensor mit Einheit
   Balken      sensor mit festem Bereich, etwa Prozent oder Watt
   Rollladen   cover - Auf, Stop, Zu und die Stellung
+  Thermostat  climate - Ist- und Solltemperatur, waermer, kaelter und
+              die Betriebsart
   Text        eine Zwischenueberschrift
 
   Beim Hinzufuegen schlaegt das Programm eine Art vor, aus Domain und

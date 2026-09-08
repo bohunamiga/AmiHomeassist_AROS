@@ -1,12 +1,6 @@
 /*
  * muistubs.c - out-of-line varargs stubs for muimaster.library.
  *
- * Herkunft: Projekt amimcp, https://github.com/thomas-luebker/amimcp
- * Lizenz:   Apache License 2.0 - NICHT die MIT-Lizenz des uebrigen
- *           Programms. Der Lizenztext liegt daneben als
- *           LICENSE-Apache-2.0.
- * Aenderung gegenueber dem Original: keine.
- *
  * These MUST live in their own translation unit. As static __inline
  * functions in the header, GCC 6 (-Os) saw that the callee never uses
  * va_arg and legally DROPPED the variadic arguments at every call site -

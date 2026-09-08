@@ -303,3 +303,23 @@ MSG_CLI_TOGGLED
 commutato
 MSG_ERR_NOHTTPS
 https non è supportato - usa http://
+MSG_ERR_TIMEOUT
+Home Assistant non risponde - tempo scaduto
+MSG_KIND_CLIMATE
+Termostato
+MSG_GROUP_CLIMATE
+Riscaldamento
+MSG_HVAC_OFF
+spento
+MSG_HVAC_HEAT
+riscalda
+MSG_HVAC_COOL
+raffredda
+MSG_HVAC_AUTO
+auto
+MSG_HVAC_DRY
+deumidifica
+MSG_HVAC_FAN
+ventola
+MSG_HVAC_HEATCOOL
+caldo/freddo

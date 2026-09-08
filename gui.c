@@ -49,7 +49,7 @@ extern struct DosLibrary *DOSBase;
 struct IntuitionBase *IntuitionBase = NULL;
 struct Library *MUIMasterBase = NULL;
 
-const char *VERSTAG = "$VER: AmiHomeassist 0.6 (31.8.2026)";
+const char *VERSTAG = "$VER: AmiHomeassist 0.7 (1.9.2026)";
 
 enum {
     ID_REFRESH = 1, ID_PAGE,
@@ -80,6 +80,9 @@ struct WUI {
     Object        *img_on;      /* damit beide den Klick melden koennen  */
     char           last[STATE_LEN];
     int            lastpos;     /* damit auch eine reine Fahrt auffaellt */
+    int            lastcur;     /* nur Heizung: Ist und Soll, damit eine  */
+    int            lasttgt;     /* Aenderung um ein halbes Grad auffaellt */
+    Object        *ctl2;        /* nur Heizung: der Knopf mit der Betriebsart */
 };
 
 static struct WUI *g_wui = NULL;
@@ -158,8 +161,8 @@ static const char *cover_text(const struct Entity *e)
     static char buf[32];
     const char *wort;
 
-    if (stricmp(e->state, "open") == 0)         wort = "offen";
-    else if (stricmp(e->state, "closed") == 0)  wort = "zu";
+    if (stricmp(e->state, "open") == 0)         wort = GetStr(MSG_STATE_OPEN);
+    else if (stricmp(e->state, "closed") == 0)  wort = GetStr(MSG_STATE_CLOSED);
     else if (stricmp(e->state, "opening") == 0) wort = GetStr(MSG_STATE_OPENING);
     else if (stricmp(e->state, "closing") == 0) wort = GetStr(MSG_STATE_CLOSING);
     else                                        wort = e->state;
@@ -170,6 +173,57 @@ static const char *cover_text(const struct Entity *e)
     }
     return wort;
 }
+
+/* Die Betriebsart, wie Home Assistant sie nennt, in der Sprache des
+ * Anwenders. Was nicht in der Liste steht, bleibt stehen wie es kam - HA
+ * kennt Arten, die kein Amiga-Katalog vorhersehen kann. */
+static const char *hvac_text(const char *mode)
+{
+    static const struct { const char *ha; short msg; } MAP[] = {
+        { "off",       MSG_HVAC_OFF },
+        { "heat",      MSG_HVAC_HEAT },
+        { "cool",      MSG_HVAC_COOL },
+        { "auto",      MSG_HVAC_AUTO },
+        { "dry",       MSG_HVAC_DRY },
+        { "fan_only",  MSG_HVAC_FAN },
+        { "heat_cool", MSG_HVAC_HEATCOOL }
+    };
+    int i;
+
+    for (i = 0; i < (int)(sizeof(MAP) / sizeof(MAP[0])); i++) {
+        if (stricmp(mode, MAP[i].ha) == 0) {
+            return GetStr(MAP[i].msg);
+        }
+    }
+    return mode;
+}
+
+/* "23.5 -> 12.0 GradC". Die Einheit steht bei climate nicht in den
+ * Attributen - Home Assistant rechnet alles in die Einheit der Anlage um und
+ * sagt sie nicht dazu. Deshalb Grad Celsius, wenn nichts anderes dasteht. */
+static const char *climate_text(const struct Entity *e)
+{
+    /* Grosszuegig: die Einheit kommt aus Home Assistant und darf bis
+     * UNIT_LEN lang sein, zweimal, dazu zwei Temperaturen. */
+    static char buf[96];
+    char ist[16], soll[16];
+    const char *unit = e->unit[0] ? e->unit : "\260C";
+
+    temp_text(e->cur, ist, sizeof(ist));
+    temp_text(e->tgt, soll, sizeof(soll));
+
+    if (ist[0] && soll[0]) {
+        sprintf(buf, "%s %s  >  %s %s", ist, unit, soll, unit);
+    } else if (soll[0]) {
+        sprintf(buf, ">  %s %s", soll, unit);
+    } else if (ist[0]) {
+        sprintf(buf, "%s %s", ist, unit);
+    } else {
+        strcpy(buf, "-");
+    }
+    return buf;
+}
+
 
 static void value_text(const struct Entity *e, char *out, int outsize)
 {
@@ -234,6 +288,8 @@ static BOOL wui_add(struct Widget *w, struct Entity *e, Object *ctl,
     }
     memset(&g_wui[g_wui_count], 0, sizeof(struct WUI));
     g_wui[g_wui_count].lastpos = -2;      /* -1 ist ein gueltiger Wert */
+    g_wui[g_wui_count].lastcur = TEMP_NONE - 1;
+    g_wui[g_wui_count].lasttgt = TEMP_NONE - 1;
     g_wui[g_wui_count].w = w;
     g_wui[g_wui_count].e = e;
     g_wui[g_wui_count].img_off = img_off;
@@ -392,6 +448,48 @@ static Object *build_widget(struct Widget *w)
                              app, 2, MUIM_Application_ReturnID,
                              ID_WIDGET + n + 2);
                     DoMethod(b_down, MUIM_Notify, MUIA_Pressed, FALSE,
+                             app, 2, MUIM_Application_ReturnID,
+                             ID_WIDGET + n + 3);
+                }
+            }
+            return row;
+        }
+
+        case WK_CLIMATE: {
+            Object *b_down = MUI_MakeObject(MUIO_Button, "-");
+            Object *b_up   = MUI_MakeObject(MUIO_Button, "+");
+            Object *b_mode = MUI_MakeObject(MUIO_Button,
+                                            (char *)hvac_text(e->state));
+
+            ctl = MUI_NewObject(MUIC_Text,
+                MUIA_Text_Contents, (char *)climate_text(e),
+                MUIA_Text_PreParse, "\33r",
+                MUIA_Frame,         MUIV_Frame_Text,
+                TAG_DONE);
+
+            row = MUI_NewObject(MUIC_Group,
+                MUIA_Group_Horiz, TRUE,
+                MUIA_Group_Child, label_obj(w->label),
+                MUIA_Group_Child, ctl,
+                MUIA_Group_Child, b_down,
+                MUIA_Group_Child, b_up,
+                MUIA_Group_Child, b_mode,
+                TAG_DONE);
+            if (row) {
+                wui_add(w, e, ctl, NULL, NULL);
+                g_wui[g_wui_count - 1].ctl2 = b_mode;
+                /* Dieselben Vierersprünge wie beim Rollladen:
+                 * +1 kaelter, +2 waermer, +3 Betriebsart. */
+                {
+                    int n = (g_wui_count - 1) * 4;
+
+                    DoMethod(b_down, MUIM_Notify, MUIA_Pressed, FALSE,
+                             app, 2, MUIM_Application_ReturnID,
+                             ID_WIDGET + n + 1);
+                    DoMethod(b_up, MUIM_Notify, MUIA_Pressed, FALSE,
+                             app, 2, MUIM_Application_ReturnID,
+                             ID_WIDGET + n + 2);
+                    DoMethod(b_mode, MUIM_Notify, MUIA_Pressed, FALSE,
                              app, 2, MUIM_Application_ReturnID,
                              ID_WIDGET + n + 3);
                 }
@@ -573,11 +671,14 @@ static void widgets_update(void)
         if (!u->e || !u->ctl) {
             continue;
         }
-        if (strcmp(u->last, u->e->state) == 0 && u->lastpos == u->e->pos) {
+        if (strcmp(u->last, u->e->state) == 0 && u->lastpos == u->e->pos &&
+                u->lastcur == u->e->cur && u->lasttgt == u->e->tgt) {
             continue;              /* unveraendert - nicht anfassen */
         }
         strcpy(u->last, u->e->state);
         u->lastpos = u->e->pos;
+        u->lastcur = u->e->cur;
+        u->lasttgt = u->e->tgt;
 
         switch (u->w->kind) {
             case WK_TOGGLE:
@@ -604,16 +705,45 @@ static void widgets_update(void)
             case WK_COVER:
                 set(u->ctl, MUIA_Text_Contents, (char *)cover_text(u->e));
                 break;
+            case WK_CLIMATE:
+                set(u->ctl, MUIA_Text_Contents, (char *)climate_text(u->e));
+                if (u->ctl2) {
+                    set(u->ctl2, MUIA_Text_Contents,
+                        (char *)hvac_text(u->e->state));
+                }
+                break;
         }
     }
+}
+
+/* Fehlschlaege in Folge. Ist Home Assistant nicht erreichbar, hat es keinen
+ * Sinn, weiter im eingestellten Takt dagegen zu laufen: jeder Versuch kostet
+ * jetzt bis zu fuenf Sekunden Zeitgrenze, in denen die Oberflaeche steht.
+ * Nach dem zweiten Fehlschlag wird der Abstand deshalb auf eine halbe Minute
+ * gestreckt, der erste Erfolg stellt den eingestellten Takt wieder her. */
+static int g_net_fails = 0;
+
+#define NET_BACKOFF_AFTER 2
+#define NET_BACKOFF_SECS 30
+
+static int poll_secs(void)
+{
+    if (g_net_fails >= NET_BACKOFF_AFTER && g_prefs.poll < NET_BACKOFF_SECS) {
+        return NET_BACKOFF_SECS;
+    }
+    return g_prefs.poll;
 }
 
 static void refresh_states(void)
 {
     if (states_refresh(&g_prefs, &g_cat) != AH_OK) {
         say(txt_status, ha_last_error());
+        if (g_net_fails < NET_BACKOFF_AFTER) {
+            g_net_fails++;
+        }
         return;
     }
+    g_net_fails = 0;
     widgets_update();
 }
 
@@ -1195,7 +1325,7 @@ int main(void)
     }
 
     if (timer_open()) {
-        timer_start(g_prefs.poll);
+        timer_start(poll_secs());
     }
 
     while ((id = DoMethod(app, MUIM_Application_NewInput, &sigs))
@@ -1221,7 +1351,7 @@ int main(void)
                             ;
                         }
                         g_twait = FALSE;
-                        timer_start(g_prefs.poll);
+                        timer_start(poll_secs());
                     }
                     if (sigs & SIGBREAKF_CTRL_C) {
                         break;
@@ -1236,7 +1366,56 @@ int main(void)
             int n   = raw / 4;          /* welches Bedienelement */
             int act = raw % 4;          /* 0 schalten, 1 auf, 2 stop, 3 zu */
 
-            if (n >= 0 && n < g_wui_count && g_wui[n].e && act > 0) {
+            if (n >= 0 && n < g_wui_count && g_wui[n].e && act > 0 &&
+                    g_wui[n].w->kind == WK_CLIMATE) {
+                struct WUI *u = &g_wui[n];
+
+                if (act == 3) {
+                    char mode[STATE_LEN];
+
+                    if (!hvac_next_mode(u->e, mode, sizeof(mode))) {
+                        say(txt_status, u->w->label);
+                    } else if (ha_set_hvac_mode(&g_prefs, u->e->id, mode)
+                                   != AH_OK) {
+                        say(txt_status, ha_last_error());
+                    } else {
+                        /* Sofort umschreiben, nicht auf die naechste Abfrage
+                         * warten - ein Knopf, der erst in einer Sekunde
+                         * reagiert, fuehlt sich kaputt an. */
+                        strcpy(u->e->state, mode);
+                        strcpy(u->last, u->e->state);
+                        if (u->ctl2) {
+                            set(u->ctl2, MUIA_Text_Contents,
+                                (char *)hvac_text(u->e->state));
+                        }
+                        say(txt_status, u->w->label);
+                    }
+                } else if (u->e->tgt == TEMP_NONE) {
+                    say(txt_status, u->w->label);
+                } else {
+                    int step = (u->e->tstep > 0) ? u->e->tstep : 5;
+                    int t = u->e->tgt + ((act == 2) ? step : -step);
+
+                    if (t < u->e->tmin) {
+                        t = u->e->tmin;
+                    }
+                    if (t > u->e->tmax) {
+                        t = u->e->tmax;
+                    }
+                    if (t == u->e->tgt) {
+                        say(txt_status, u->w->label);   /* am Anschlag */
+                    } else if (ha_set_temperature(&g_prefs, u->e->id, t)
+                                   != AH_OK) {
+                        say(txt_status, ha_last_error());
+                    } else {
+                        u->e->tgt = (short)t;
+                        u->lasttgt = t;
+                        set(u->ctl, MUIA_Text_Contents,
+                            (char *)climate_text(u->e));
+                        say(txt_status, u->w->label);
+                    }
+                }
+            } else if (n >= 0 && n < g_wui_count && g_wui[n].e && act > 0) {
                 struct WUI *u = &g_wui[n];
                 const char *svc = (act == 1) ? "open_cover"
                                 : (act == 2) ? "stop_cover" : "close_cover";
@@ -1314,7 +1493,7 @@ int main(void)
                         set(win_prefs, MUIA_Window_Open, FALSE);
                         timer_stop();
                         reload_all(TRUE);
-                        timer_start(g_prefs.poll);
+                        timer_start(poll_secs());
                     }
                     break;
             }
@@ -1334,7 +1513,7 @@ int main(void)
                 if (g_have_prefs && !selopen) {
                     refresh_states();
                 }
-                timer_start(g_prefs.poll);
+                timer_start(poll_secs());
             }
             if (sigs & SIGBREAKF_CTRL_C) {
                 break;

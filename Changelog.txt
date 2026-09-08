@@ -1,6 +1,29 @@
 AmiHomeassist - was sich geaendert hat
 =====================================
 
+0.7   08.09.2026
+
+  Zeitgrenzen am Netz. Antwortet Home Assistant nicht, stand bisher das
+  ganze Programm still, bis der TCP-Stack aufgab - gemessen 76 Sekunden
+  je Versuch, ohne Fenster, ohne Menue, ohne Ctrl-C. Jetzt bricht der
+  Verbindungsaufbau nach fuenf Sekunden ab, Senden und Empfangen nach
+  fuenfzehn, und nach dem zweiten Fehlschlag wird nur noch alle dreissig
+  Sekunden angeklopft, bis es wieder geht.
+
+  Steht in den Einstellungen eine Zahlenadresse statt eines Namens,
+  entfaellt die Namensaufloesung ganz.
+
+  Heizungen. Die Domain climate kommt dazu, mit einer eigenen
+  Darstellungsart: Ist- und Solltemperatur, waermer und kaelter in der
+  Schrittweite des Geraets, und ein Knopf fuer die Betriebsart.
+
+  Rollladenzustaende und die Shell-Ausgabe waren an zwei Stellen fest
+  deutsch, auch in einem englischen Programm. Behoben.
+
+  Die Abfrage laesst Home Assistant keine Protokollwarnungen mehr
+  schreiben.
+
+
 0.6   31.08.2026
 
   Vier Sprachen. Die Oberflaeche spricht Englisch, Deutsch, Italienisch

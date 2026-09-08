@@ -42,9 +42,15 @@
  * ist ab dann fest, genau wie die Gruppentitel. */
 #define AREA_NONE  GetStr(MSG_ICON_NOAREA)
 
-/* Die Domains, die geholt werden. climate fehlt bewusst - Sollwert, Modus und
- * Luefterstufe brauchen eigene Bedienelemente und kommen spaeter. */
-#define HA_DOMAINS "'light','switch','sensor','binary_sensor','cover'"
+/* Die Domains, die geholt werden. */
+#define HA_DOMAINS \
+    "'light','switch','sensor','binary_sensor','cover','climate'"
+
+/* Temperaturen stehen in ZEHNTELGRAD als ganze Zahl - 23,5 Grad ist 235.
+ * Kein Fliesskomma: das Zielprofil laeuft ohne FPU, und der Softfloat-Weg
+ * waere fuer eine Anzeige mit einer Nachkommastelle Verschwendung. */
+#define TEMP_NONE  (-32768)     /* Wert fehlt oder Geraet ist keine Heizung */
+#define MODES_LEN  32           /* "auto,heat" - die Liste aus hvac_modes */
 
 struct Entity {
     char id[ID_LEN];
@@ -54,6 +60,14 @@ struct Entity {
     char unit[UNIT_LEN];        /* °C, W, % ... leer wenn keine */
     char dclass[DCLASS_LEN];    /* temperature, power, window ... */
     int  pos;                   /* nur cover: Stellung 0..100, sonst -1 */
+
+    /* Nur climate, sonst TEMP_NONE. cur und tgt kommen bei jeder Abfrage
+     * frisch, die drei Grenzen stehen einmal im Katalog - die aendert ein
+     * Thermostat nicht. */
+    short cur, tgt;             /* Ist und Soll in Zehntelgrad */
+    short tmin, tmax, tstep;    /* Grenzen und Schrittweite des Sollwerts */
+    char  modes[MODES_LEN];     /* hvac_modes, mit Komma getrennt */
+
     BOOL selected;              /* vom Anwender uebernommen */
 };
 
@@ -105,6 +119,17 @@ int  states_refresh(struct Prefs *p, struct Catalog *c);
 /* service ist "turn_on", "turn_off", "toggle", "open_cover" ... Die Domain
  * wird aus der Entity-ID abgeleitet. */
 int  ha_service(struct Prefs *p, const char *entity_id, const char *service);
+
+/* Heizung: Sollwert setzen (in Zehntelgrad) und Betriebsart waehlen. */
+int  ha_set_temperature(struct Prefs *p, const char *entity_id, int tenths);
+int  ha_set_hvac_mode(struct Prefs *p, const char *entity_id, const char *mode);
+
+/* Die naechste Betriebsart aus e->modes, hinter der jetzigen. Liefert FALSE,
+ * wenn das Geraet keine oder nur eine kennt - dann gibt es nichts zu wippen. */
+BOOL hvac_next_mode(const struct Entity *e, char *out, int outsize);
+
+/* "23.5" aus 235, auch fuer negative Werte. Fuer Anzeige und JSON. */
+void temp_text(int tenths, char *out, int outsize);
 
 /* Home Assistant liefert UTF-8, der Amiga will Latin-1. */
 void utf8_to_latin1(char *s);

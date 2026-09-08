@@ -95,7 +95,8 @@ static const char *ICON_TEXT[ICON_TEXT_COUNT + 1];
 
 static const short KIND_MSG[WK_COUNT] = {
     MSG_KIND_TOGGLE, MSG_KIND_LAMP, MSG_KIND_VALUE,
-    MSG_KIND_GAUGE,  MSG_KIND_COVER, MSG_KIND_TEXT
+    MSG_KIND_GAUGE,  MSG_KIND_COVER, MSG_KIND_TEXT,
+    MSG_KIND_CLIMATE
 };
 
 /* Muss zur Reihenfolge der Liste ICONS in mdi.py passen. */

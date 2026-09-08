@@ -22,7 +22,8 @@
 #define WK_GAUGE   3    /* sensor - Balken zwischen min und max */
 #define WK_COVER   4    /* cover - Auf, Stop, Zu */
 #define WK_TEXT    5    /* nur Beschriftung, ohne Entitaet */
-#define WK_COUNT   6
+#define WK_CLIMATE 6    /* climate - Ist, Soll, waermer/kaelter, Betriebsart */
+#define WK_COUNT   7
 
 #define TITLE_LEN  40
 

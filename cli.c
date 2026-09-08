@@ -22,7 +22,7 @@
 /* siehe amiha.c: netinclude verdeckt SAS/Cs proto/dos.h */
 extern struct DosLibrary *DOSBase;
 
-const char *VERSTAG = "$VER: AmiHomeassist 0.6 (31.8.2026)";
+const char *VERSTAG = "$VER: AmiHomeassist 0.7 (1.9.2026)";
 
 #define TEMPLATE "ALL/S,DOMAIN/K,ON/K,OFF/K,TOGGLE/K,STATES/S,DASH/S,HOST/K,TOKEN/K,SAVE/S"
 
@@ -57,7 +57,7 @@ static void print_list(struct Prefs *p, BOOL show_all, const char *domain)
     for (i = 0; i < g_cat.count; i++) {
         struct Entity *e = &g_cat.list[i];
         char dom[24];
-        char value[STATE_LEN + UNIT_LEN + 4];
+        char value[STATE_LEN + UNIT_LEN + 32];
 
         entity_domain(e->id, dom, sizeof(dom));
         if (domain && stricmp(dom, domain) != 0) {
@@ -73,8 +73,17 @@ static void print_list(struct Prefs *p, BOOL show_all, const char *domain)
             printf("\n%s\n", current);
         }
 
-        if (is_switchable(e)) {
-            sprintf(value, "%s", (stricmp(e->state, "on") == 0) ? "an" : "aus");
+        if (e->tgt != TEMP_NONE || e->cur != TEMP_NONE) {
+            char ist[16], soll[16];
+
+            temp_text(e->cur, ist, sizeof(ist));
+            temp_text(e->tgt, soll, sizeof(soll));
+            sprintf(value, "%s>%s %s", ist, soll, e->state);
+        } else if (is_switchable(e)) {
+            /* Die beiden Woerter kamen bis 0.6 deutsch aus dem Quelltext,
+             * auch in einem englischen Programm. */
+            sprintf(value, "%s", GetStr((stricmp(e->state, "on") == 0)
+                                        ? MSG_STATE_ON : MSG_STATE_OFF));
         } else if (e->unit[0]) {
             sprintf(value, "%s %s", e->state, e->unit);
         } else {
@@ -137,7 +146,7 @@ static void do_dash(struct Prefs *p)
     struct Dash d;
     int rc, found, i, j, k;
     static const char *kn[WK_COUNT] = {
-        "toggle", "lamp", "value", "gauge", "cover", "text"
+        "toggle", "lamp", "value", "gauge", "cover", "text", "climate"
     };
 
     rc = catalog_fetch(p, &g_cat);

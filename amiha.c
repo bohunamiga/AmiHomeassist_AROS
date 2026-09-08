@@ -5,6 +5,7 @@
 #include <proto/dos.h>
 #include <proto/socket.h>
 #include <sys/socket.h>
+#include <sys/ioctl.h>
 #include <netinet/in.h>
 #include <netdb.h>
 
@@ -394,6 +395,81 @@ int import_save(struct Catalog *c)
  * encoding, und der Rumpf ist schlicht alles bis zum Verbindungsende. Das
  * spart einen Parser, den man sonst nur fuer Sonderfaelle braeuchte. */
 
+/* Zeitgrenzen in Sekunden. Ohne sie haengt das GANZE Programm am TCP-Stack:
+ * der Verbindungsaufbau zu einem Rechner, der nicht antwortet, laeuft bei
+ * Roadshow rund 75 Sekunden, und weil die Abfrage im selben Task wie die
+ * Oberflaeche laeuft, ist derweil kein Fenster, kein Menue und kein Ctrl-C
+ * zu gebrauchen. Home Assistant startet nach jedem Update neu, das WLAN
+ * zuckt - der Fall ist Alltag, nicht Ausnahme. */
+#define AH_CONNECT_SECS  5
+#define AH_IO_SECS      15
+
+/* bsdsocket.library zaehlt Fehler wie BSD und NICHT wie das errno.h der
+ * benutzten C-Bibliothek - deshalb stehen die beiden Werte hier selbst,
+ * statt sich aus libnix zu bedienen. */
+#define AH_EWOULDBLOCK  35
+#define AH_EINPROGRESS  36
+
+/* Wartet, bis der Socket lesbar (oder schreibbar) ist.
+ * 1 = bereit, 0 = Zeit abgelaufen, -1 = Fehler. */
+static int sock_wait(int sock, BOOL forwrite, long secs)
+{
+    fd_set fds;
+    struct timeval tv;
+    long n;
+
+    FD_ZERO(&fds);
+    FD_SET(sock, &fds);
+    tv.tv_sec  = secs;
+    tv.tv_usec = 0;
+
+    /* Der Zeiger geht als APTR hinein: bsdsocket erwartet 'struct __timeval',
+     * eine Typangabe, die kein Header ausfuellt. */
+    n = WaitSelect(sock + 1,
+                   forwrite ? NULL : (APTR)&fds,
+                   forwrite ? (APTR)&fds : NULL,
+                   NULL, (APTR)&tv, NULL);
+    if (n < 0) {
+        return -1;
+    }
+    return n > 0 ? 1 : 0;
+}
+
+/* Verbindet mit Zeitgrenze. Der Socket ist dazu nicht blockierend gestellt
+ * und bleibt es auch danach - send() und recv() unten warten selbst. */
+static int connect_timeout(int sock, struct sockaddr_in *sa)
+{
+    LONG nb = 1;
+    LONG err = 0;
+    socklen_t errlen = sizeof(err);
+    int w;
+
+    IoctlSocket(sock, FIONBIO, (APTR)&nb);
+
+    if (connect(sock, (struct sockaddr *)sa, sizeof(*sa)) == 0) {
+        return AH_OK;
+    }
+    if (Errno() != AH_EINPROGRESS && Errno() != AH_EWOULDBLOCK) {
+        return fail(AH_ENET, GetStr(MSG_ERR_REFUSED));
+    }
+
+    w = sock_wait(sock, TRUE, AH_CONNECT_SECS);
+    if (w == 0) {
+        return fail(AH_ENET, GetStr(MSG_ERR_TIMEOUT));
+    }
+    if (w < 0) {
+        return fail(AH_ENET, GetStr(MSG_ERR_REFUSED));
+    }
+
+    /* Schreibbar heisst nur "fertig", nicht "geglueckt" - abgewiesene
+     * Verbindungen melden sich genauso. Der Grund steht in SO_ERROR. */
+    if (getsockopt(sock, SOL_SOCKET, SO_ERROR, (APTR)&err, &errlen) < 0
+            || err != 0) {
+        return fail(AH_ENET, GetStr(MSG_ERR_REFUSED));
+    }
+    return AH_OK;
+}
+
 static int recv_all(int sock, char **out, long *outlen)
 {
     long cap = 32768;
@@ -406,6 +482,8 @@ static int recv_all(int sock, char **out, long *outlen)
     }
 
     for (;;) {
+        int w;
+
         if (len + 4096 >= cap) {
             char *nb = realloc(buf, cap * 2);
             if (!nb) {
@@ -415,9 +493,26 @@ static int recv_all(int sock, char **out, long *outlen)
             buf = nb;
             cap *= 2;
         }
+
+        /* Der Socket ist nicht blockierend, also erst warten, bis wirklich
+         * etwas da ist. Sonst kaeme recv() sofort mit EWOULDBLOCK zurueck
+         * und die Schleife liefe heiss. */
+        w = sock_wait(sock, FALSE, AH_IO_SECS);
+        if (w == 0) {
+            free(buf);
+            return fail(AH_ENET, GetStr(MSG_ERR_TIMEOUT));
+        }
+        if (w < 0) {
+            free(buf);
+            return fail(AH_ENET, GetStr(MSG_ERR_RECV));
+        }
+
         n = recv(sock, buf + len, cap - len - 1, 0);
+        if (n < 0 && Errno() == AH_EWOULDBLOCK) {
+            continue;               /* Fehlalarm - weiter warten */
+        }
         if (n <= 0) {
-            break;
+            break;                  /* 0 = Gegenstelle hat zugemacht */
         }
         len += n;
     }
@@ -433,6 +528,7 @@ static int http_request(struct Prefs *p, const char *method, const char *path,
 {
     struct hostent *he;
     struct sockaddr_in sa;
+    in_addr_t addr;
     int sock = -1;
     int rc;
     long sent, total, n;
@@ -454,17 +550,26 @@ static int http_request(struct Prefs *p, const char *method, const char *path,
         return fail(AH_ENET, GetStr(MSG_ERR_NOSOCKET));
     }
 
-    he = gethostbyname((UBYTE *)p->host);
-    if (!he) {
-        CloseLibrary(SocketBase);
-        SocketBase = NULL;
-        return fail(AH_ENET, GetStr(MSG_ERR_NORESOLVE));
-    }
-
     memset(&sa, 0, sizeof(sa));
     sa.sin_family = AF_INET;
     sa.sin_port = htons((unsigned short)p->port);
-    memcpy(&sa.sin_addr, he->h_addr_list[0], he->h_length);
+
+    /* Steht in den Einstellungen eine Zahlenadresse, ist der Namensdienst
+     * ueberfluessig. Das spart nicht nur eine Anfrage je Abfrage, es nimmt
+     * auch die einzige Wartestelle heraus, die sich nicht begrenzen laesst:
+     * gethostbyname() blockiert, so lange der Resolver will. */
+    addr = inet_addr((STRPTR)p->host);
+    if (addr != INADDR_NONE) {
+        sa.sin_addr.s_addr = addr;
+    } else {
+        he = gethostbyname((UBYTE *)p->host);
+        if (!he) {
+            CloseLibrary(SocketBase);
+            SocketBase = NULL;
+            return fail(AH_ENET, GetStr(MSG_ERR_NORESOLVE));
+        }
+        memcpy(&sa.sin_addr, he->h_addr_list[0], he->h_length);
+    }
 
     sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
@@ -473,11 +578,12 @@ static int http_request(struct Prefs *p, const char *method, const char *path,
         return fail(AH_ENET, GetStr(MSG_ERR_SOCKET));
     }
 
-    if (connect(sock, (struct sockaddr *)&sa, sizeof(sa)) < 0) {
+    rc = connect_timeout(sock, &sa);
+    if (rc != AH_OK) {
         CloseSocket(sock);
         CloseLibrary(SocketBase);
         SocketBase = NULL;
-        return fail(AH_ENET, GetStr(MSG_ERR_REFUSED));
+        return rc;              /* Meldung steht schon */
     }
 
     reqcap = 1024 + strlen(p->token) + bodylen;
@@ -505,13 +611,24 @@ static int http_request(struct Prefs *p, const char *method, const char *path,
     total = (long)strlen(req);
     sent = 0;
     while (sent < total) {
-        n = send(sock, req + sent, total - sent, 0);
+        int w = sock_wait(sock, TRUE, AH_IO_SECS);
+
+        if (w > 0) {
+            n = send(sock, req + sent, total - sent, 0);
+            if (n < 0 && Errno() == AH_EWOULDBLOCK) {
+                continue;
+            }
+        } else {
+            n = -1;
+        }
         if (n <= 0) {
+            const char *msg = (w == 0) ? GetStr(MSG_ERR_TIMEOUT)
+                                       : GetStr(MSG_ERR_SEND);
             free(req);
             CloseSocket(sock);
             CloseLibrary(SocketBase);
             SocketBase = NULL;
-            return fail(AH_ENET, GetStr(MSG_ERR_SEND));
+            return fail(AH_ENET, msg);
         }
         sent += n;
     }
@@ -563,14 +680,44 @@ static int http_request(struct Prefs *p, const char *method, const char *path,
  * hinter der WebSocket-Schnittstelle. Statt die nachzubauen, laesst dieses
  * Template Home Assistant die Zuordnung selbst aufloesen und fertige Zeilen
  * liefern. Damit braucht der Amiga weder WebSocket noch JSON-Parser. */
+/* Ein Jinja-Ausdruck, der ein Attribut in Zehntelgrad ausgibt - oder den
+ * Platzhalter, wenn es das Attribut nicht gibt. Als Makro, weil er siebenmal
+ * gebraucht wird und ausgeschrieben nicht mehr zu lesen waere.
+ *
+ * Bewusst state_attr() statt s.attributes.x: fehlt das Attribut, liefert
+ * state_attr None, waehrend s.attributes.x ein Undefined liefert - und
+ * Undefined mal zehn ist ein Fehler, der die ganze Antwort verdirbt. */
+#define AH_T10(attr) \
+    "{{ ((" attr " * 10) | round | int) if " attr " is not none else -32768 }}"
+
 static const char *CATALOG_BODY =
     "{\"template\": \""
     "{%- for s in states if s.domain in [" HA_DOMAINS "] -%}"
     "\\n{{ s.entity_id }}|{{ s.name }}|{{ area_name(s.entity_id) or '-' }}"
-    "|{{ s.state }}|{{ s.attributes.unit_of_measurement or '' }}"
-    "|{{ s.attributes.device_class or '' }}"
-    "|{{ s.attributes.current_position if s.attributes.current_position "
-    "is defined else -1 }}"
+    /* Die beiden Attribute ueber state_attr, nicht ueber s.attributes.x:
+     * fehlt das Attribut, schreibt Home Assistant sonst je Entitaet und
+     * Abfrage eine Warnung ins Protokoll. Bei 700 Entitaeten im Sekundentakt
+     * sind das Tausende - am 01.09.2026 standen 9600 Stueck darin. */
+    "|{{ s.state }}|{{ state_attr(s.entity_id,'unit_of_measurement') or '' }}"
+    "|{{ state_attr(s.entity_id,'device_class') or '' }}"
+    "|{{ state_attr(s.entity_id,'current_position') "
+    "if state_attr(s.entity_id,'current_position') is not none else -1 }}"
+    /* Nur Heizungen haengen fuenf weitere Felder an: Ist, Soll, Grenzen und
+     * Schrittweite in Zehntelgrad, dazu die Betriebsarten. Die 700 anderen
+     * Zeilen bleiben dadurch so kurz wie bisher. */
+    "{%- if s.domain == 'climate' -%}"
+    "|" AH_T10("state_attr(s.entity_id,'current_temperature')")
+    "|" AH_T10("state_attr(s.entity_id,'temperature')")
+    "|" AH_T10("state_attr(s.entity_id,'min_temp')")
+    "|" AH_T10("state_attr(s.entity_id,'max_temp')")
+    "|" AH_T10("state_attr(s.entity_id,'target_temp_step')")
+    "|{{ state_attr(s.entity_id,'hvac_modes') | join(',') "
+    "if state_attr(s.entity_id,'hvac_modes') is not none else '' }}"
+    /* Das schliessende endif OHNE Strich hinten: mit "-%}" frisst Jinja die
+     * Zeilenschaltung dahinter, und die ist der Trenner zwischen zwei
+     * Geraeten. Dann kommt die ganze Anlage als eine einzige Zeile an und
+     * genau ein Geraet ueberlebt das Einlesen. */
+    "{%- endif %}"
     "\\n{% endfor -%}"
     "\"}";
 
@@ -585,6 +732,38 @@ static void copy_field(char *dst, int dstsize, const char *src, int len)
     memcpy(dst, src, len);
     dst[len] = '\0';
     trim(dst);
+}
+
+/* Ein Zahlenfeld aus der Antwort, in Zehntelgrad. Leer oder Platzhalter
+ * heisst: gibt es nicht. */
+static int field_tenths(const char *src)
+{
+    char tmp[16];
+
+    copy_field(tmp, sizeof(tmp), src, (int)strlen(src));
+    if (tmp[0] == '\0') {
+        return TEMP_NONE;
+    }
+    return atoi(tmp);
+}
+
+/* Die Liste der Betriebsarten kann laenger sein als das Feld. Abgeschnitten
+ * bliebe sonst ein halbes Wort stehen ("off,heat,coo"), und das waere eine
+ * Betriebsart, die Home Assistant nicht kennt - also das angebrochene letzte
+ * Stueck wegwerfen. */
+static void trim_partial_mode(char *modes)
+{
+    int n = (int)strlen(modes);
+
+    if (n < MODES_LEN - 1) {
+        return;                    /* nichts abgeschnitten */
+    }
+    while (n > 0 && modes[n - 1] != ',') {
+        n--;
+    }
+    if (n > 0) {
+        modes[n - 1] = '\0';      /* das Komma mit weg */
+    }
 }
 
 /* Zerlegt eine Zeile an '|' und liefert die Anzahl gefundener Felder. */
@@ -617,7 +796,7 @@ int catalog_fetch(struct Prefs *p, struct Catalog *c)
 
     line = body;
     while (line && *line) {
-        char *f[7];
+        char *f[13];
         int nf;
 
         next = strchr(line, '\n');
@@ -625,7 +804,7 @@ int catalog_fetch(struct Prefs *p, struct Catalog *c)
             *next = '\0';
         }
 
-        nf = split_fields(line, f, 7);
+        nf = split_fields(line, f, 13);
         if (nf >= 4 && f[0][0]) {
             struct Entity *e;
 
@@ -653,6 +832,33 @@ int catalog_fetch(struct Prefs *p, struct Catalog *c)
                 copy_field(tmp, sizeof(tmp), f[6], (int)strlen(f[6]));
                 if (tmp[0]) {
                     e->pos = atoi(tmp);
+                }
+            }
+
+            /* Heizungen haengen fuenf Zahlen und die Betriebsarten an.
+             * Alle anderen Zeilen hoeren nach Feld 7 auf. */
+            e->cur = e->tgt = TEMP_NONE;
+            e->tmin = e->tmax = e->tstep = TEMP_NONE;
+            if (nf >= 12) {
+                e->cur   = (short)field_tenths(f[7]);
+                e->tgt   = (short)field_tenths(f[8]);
+                e->tmin  = (short)field_tenths(f[9]);
+                e->tmax  = (short)field_tenths(f[10]);
+                e->tstep = (short)field_tenths(f[11]);
+                if (nf >= 13) {
+                    copy_field(e->modes, MODES_LEN, f[12],
+                               (int)strlen(f[12]));
+                    trim_partial_mode(e->modes);
+                }
+                /* Ohne brauchbare Grenzen waere das Bedienelement gefaehrlich:
+                 * lieber die HA-Voreinstellungen als gar nichts. */
+                if (e->tmin == TEMP_NONE || e->tmax == TEMP_NONE ||
+                        e->tmin >= e->tmax) {
+                    e->tmin = 70;
+                    e->tmax = 300;
+                }
+                if (e->tstep == TEMP_NONE || e->tstep <= 0) {
+                    e->tstep = 5;
                 }
             }
 
@@ -716,7 +922,14 @@ int states_refresh(struct Prefs *p, struct Catalog *c)
     }
     sprintf(w, "] -%%}\\n{{ e }}|{{ states(e) }}|{{ state_attr(e,"
                "'current_position') if state_attr(e, 'current_position') "
-               "is not none else -1 }}\\n{%% endfor -%%}\"}");
+               "is not none else -1 }}"
+               /* Nur Heizungen: Ist und Soll. Die Grenzen stehen schon im
+                * Katalog und aendern sich nicht. */
+               "{%%- if e.startswith('climate.') -%%}"
+               "|" AH_T10("state_attr(e,'current_temperature')")
+               "|" AH_T10("state_attr(e,'temperature')")
+               "{%%- endif %%}"     /* kein Strich - siehe CATALOG_BODY */
+               "\\n{%% endfor -%%}\"}");
 
     rc = http_request(p, "POST", "/api/template", body, &resp, &len);
     free(body);
@@ -734,8 +947,8 @@ int states_refresh(struct Prefs *p, struct Catalog *c)
                 *next = '\0';
             }
             {
-                char *f3[3];
-                int nf = split_fields(line, f3, 3);
+                char *f3[5];
+                int nf = split_fields(line, f3, 5);
 
                 if (nf >= 2 && f3[0][0]) {
                     struct Entity *e;
@@ -753,6 +966,10 @@ int states_refresh(struct Prefs *p, struct Catalog *c)
                             if (tmp[0]) {
                                 e->pos = atoi(tmp);
                             }
+                        }
+                        if (nf >= 5) {
+                            e->cur = (short)field_tenths(f3[3]);
+                            e->tgt = (short)field_tenths(f3[4]);
                         }
                     }
                 }
@@ -783,6 +1000,121 @@ int ha_service(struct Prefs *p, const char *entity_id, const char *service)
     sprintf(bodybuf, "{\"entity_id\": \"%s\"}", entity_id);
 
     rc = http_request(p, "POST", path, bodybuf, &body, &len);
+    if (body) {
+        free(body);
+    }
+    return rc;
+}
+
+void temp_text(int tenths, char *out, int outsize)
+{
+    int whole, frac;
+
+    if (tenths == TEMP_NONE || outsize < 8) {
+        if (outsize > 0) {
+            out[0] = '\0';
+        }
+        return;
+    }
+    whole = tenths / 10;
+    frac  = tenths % 10;
+    if (frac < 0) {
+        frac = -frac;
+    }
+    /* -0,5 Grad ist whole == 0 und trotzdem negativ - das Minus muss von
+     * Hand davor, sonst stuende da 0.5. */
+    if (tenths < 0 && whole == 0) {
+        sprintf(out, "-0.%d", frac);
+    } else {
+        sprintf(out, "%d.%d", whole, frac);
+    }
+}
+
+BOOL hvac_next_mode(const struct Entity *e, char *out, int outsize)
+{
+    const char *p = e->modes;
+    const char *first = NULL;
+    int firstlen = 0;
+    BOOL take_next = FALSE;
+
+    if (!p || !*p) {
+        return FALSE;
+    }
+
+    /* Einmal durch die Liste: das Stueck hinter dem jetzigen Zustand ist das
+     * gesuchte, und ist der jetzige das letzte, faengt es wieder vorn an. */
+    while (*p) {
+        const char *comma = strchr(p, ',');
+        int len = comma ? (int)(comma - p) : (int)strlen(p);
+
+        if (!first) {
+            first = p;
+            firstlen = len;
+        }
+        if (take_next) {
+            if (len >= outsize) {
+                len = outsize - 1;
+            }
+            memcpy(out, p, len);
+            out[len] = '\0';
+            return TRUE;
+        }
+        if ((int)strlen(e->state) == len && strncmp(e->state, p, len) == 0) {
+            take_next = TRUE;
+        }
+        if (!comma) {
+            break;
+        }
+        p = comma + 1;
+    }
+
+    if (!first || (firstlen == (int)strlen(e->state) &&
+                   strncmp(e->state, first, firstlen) == 0)) {
+        return FALSE;              /* nur eine Art, oder gar keine */
+    }
+    if (firstlen >= outsize) {
+        firstlen = outsize - 1;
+    }
+    memcpy(out, first, firstlen);
+    out[firstlen] = '\0';
+    return TRUE;
+}
+
+int ha_set_temperature(struct Prefs *p, const char *entity_id, int tenths)
+{
+    char bodybuf[ID_LEN + 64];
+    char num[16];
+    char *body = NULL;
+    long len = 0;
+    int rc;
+
+    temp_text(tenths, num, sizeof(num));
+    if (num[0] == '\0') {
+        return fail(AH_EHTTP, GetStr(MSG_ERR_BADENTITY));
+    }
+    sprintf(bodybuf, "{\"entity_id\": \"%s\", \"temperature\": %s}",
+            entity_id, num);
+
+    rc = http_request(p, "POST", "/api/services/climate/set_temperature",
+                      bodybuf, &body, &len);
+    if (body) {
+        free(body);
+    }
+    return rc;
+}
+
+int ha_set_hvac_mode(struct Prefs *p, const char *entity_id, const char *mode)
+{
+    char bodybuf[ID_LEN + 64];
+    char *body = NULL;
+    long len = 0;
+    int rc;
+
+    sprintf(bodybuf, "{\"entity_id\": \"%s\", \"hvac_mode\": \"%s\"}",
+            entity_id, mode);
+
+    rc = http_request(p, "POST", "/api/services/climate/set_hvac_mode",
+                      bodybuf, &body, &len);
     if (body) {
         free(body);
     }

@@ -78,15 +78,11 @@ build/DoMethod.o: $(AMIGALIB)
 # sah aus wie ein fbcc-Sprung. Auf dem 68k faengt jeder 68881/2-Befehl mit
 # f an, die Spalte allein ist also das richtige und einfachere Kriterium.
 check-fpu: AmiHomeassist AmiHomeassistCLI
-	@for f in AmiHomeassist AmiHomeassistCLI; do \
-	  n=$$($(OBJDUMP) -d $$f | awk -F'\t' 'NF>=3 { split($$3, m, " "); if (m[1] ~ /^f/) c++ } END { print c+0 }'); \
-	  if [ "$$n" -ne 0 ]; then \
-	    echo "FEHLER: $$f enthaelt $$n FPU-Instruktionen:"; \
-	    $(OBJDUMP) -d $$f | awk -F'\t' 'NF>=3 { split($$3, m, " "); if (m[1] ~ /^f/) print "   " $$0 }' | head -5; \
-	    exit 1; \
-	  fi; \
-	  echo "OK: $$f ist FPU-frei ($$(ls -l $$f | awk '{print $$5}') Bytes)"; \
-	done
+	@python3 checkfpu.py $(OBJDUMP) AmiHomeassist AmiHomeassistCLI
+# Die Pruefung steckt in checkfpu.py, nicht mehr in awk: seit die Klima-
+# Umschaltung eine Sprungtabelle in den Code legt, zerlegt objdump deren
+# Bytes als Befehle und meldete ein 'ftstp', das nie ausgefuehrt wird.
+# Siehe den Kopf des Skripts.
 
 -include $(GUI_OBJS:.o=.d) $(CLI_OBJS:.o=.d)
 

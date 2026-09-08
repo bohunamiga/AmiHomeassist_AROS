@@ -337,3 +337,23 @@ MSG_CLI_TOGGLED (//)
 toggled
 MSG_ERR_NOHTTPS (//)
 https is not supported - please use http://
+MSG_ERR_TIMEOUT (//)
+Home Assistant does not answer - timed out
+MSG_KIND_CLIMATE (//)
+Thermostat
+MSG_GROUP_CLIMATE (//)
+Heating
+MSG_HVAC_OFF (//)
+off
+MSG_HVAC_HEAT (//)
+heat
+MSG_HVAC_COOL (//)
+cool
+MSG_HVAC_AUTO (//)
+auto
+MSG_HVAC_DRY (//)
+dry
+MSG_HVAC_FAN (//)
+fan
+MSG_HVAC_HEATCOOL (//)
+heat/cool

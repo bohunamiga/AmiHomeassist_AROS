@@ -1,9 +1,9 @@
-Short:        Home Assistant dashboards for MUI, 4 languages
-Kurz:         Home Assistant auf dem Amiga, mit MUI, 4 Sprachen
+Short:        Home Assistant dashboards for MUI, now with thermostats
+Kurz:         Home Assistant auf dem Amiga, mit MUI, jetzt auch Heizungen
 Author:       radi777
 Uploader:     thomas.radeck gmail com (radi777, see note below)
 Type:         comm/tcp
-Version:      0.6
+Version:      0.7
 Architecture: m68k-amigaos
 Requires:     dev/mui/MCC_NList-0.128.lha
 Distribution: Aminet
@@ -12,32 +12,40 @@ Distribution: Aminet
 AmiHomeassist - your smart home from a real Amiga
 =================================================
 
-Lights, sockets, blinds and sensors from Home Assistant, arranged on
-dashboards of your own. A sidebar on the left with an icon per page,
-the contents of the selected page on the right in framed groups. One
-click on the switch flips the device. States are polled, so changes
-made elsewhere show up by themselves.
+Lights, sockets, blinds, sensors and thermostats from Home Assistant,
+arranged on dashboards of your own. A sidebar on the left with an icon
+per page, the contents of the selected page on the right in framed
+groups. One click on the switch flips the device. States are polled, so
+changes made elsewhere show up by themselves.
 
 You decide what appears and how it looks. A large Home Assistant setup
 easily has 900 entities and you want a dozen or two. So there is a
 picker with a suggestion you can overrule, and an editor where pages,
 groups and devices are put together freely.
 
-NEW IN 0.6
+NEW IN 0.7
 
-The interface now speaks English, German, Italian and Spanish. English
-is built in; the other three ship as catalogues and are loaded through
-locale.library. No locale.library, or no matching catalogue, and it
-simply carries on in English. Normally the language follows your
-setting in Prefs/Locale; if you run an English Workbench but want the
-program in your own language, set AmiHomeassistLanguage.
+Heating. The climate domain is fetched too, with a widget of its own:
+current and target temperature on one line, then three buttons - colder,
+warmer, operating mode. The steps are the ones your thermostat allows,
+half a degree on some, a whole one on others. Temperatures are handled
+as whole tenths of a degree, so this still runs without an FPU.
 
-Device names, room names, units and states come from Home Assistant, so
-those were already in your own language.
+Timeouts on the wire. Until 0.6 the whole program stood still when Home
+Assistant did not answer, until the TCP stack gave up - measured at 76
+seconds per attempt, with no window, no menu, no Ctrl-C. Now connecting
+gives up after five seconds, sending and receiving after fifteen, and
+after the second failure in a row it only knocks every thirty seconds
+until the machine answers again. Measured: 5.3 seconds instead of 76.
 
-Built with m68k-amigaos-gcc now instead of SAS/C. Nothing changes for
-you: same target of 68020 and up, with and without FPU, and the build
-proves by disassembly that no FPU instruction slipped in.
+If the settings hold a numeric address instead of a name, the name
+lookup is skipped entirely - it is the one wait that cannot be bounded.
+
+Two places still said "auf"/"zu" and "an"/"aus" in German from the
+source, even in an English program. Fixed.
+
+The state query no longer makes Home Assistant write warnings into its
+log. It used to produce thousands of them a day in a large setup.
 
 WIDGET KINDS
 
@@ -46,6 +54,8 @@ WIDGET KINDS
   Number      sensor with its unit
   Bar         sensor with a fixed range, per cent or watts
   Blind       cover - up, stop, down, and the position
+  Thermostat  climate - current and target temperature, colder, warmer,
+              and the operating mode
   Text        a caption
 
 When you add a device the program suggests a kind, from its domain and
@@ -70,6 +80,11 @@ REQUIREMENTS
 
 A shell version is included that works without MUI: list and switch
 devices, for scripts.
+
+The interface speaks English, German, Italian and Spanish. English is
+built in; the other three ship as catalogues and are loaded through
+locale.library. Device names, room names, units and states come from
+Home Assistant, so those are in your own language anyway.
 
 Full source is included, MIT licence - except muistubs.c, which comes
 from the amimcp project and is Apache 2.0; its licence text is in the
@@ -99,11 +114,11 @@ front of "com" and you have it.
 AmiHomeassist - dein Smarthome vom Amiga aus
 ============================================
 
-Lampen, Steckdosen, Rollaeden und Sensoren aus Home Assistant, geordnet
-in eigenen Dashboards. Links eine Seitenleiste mit Symbolen, rechts der
-Inhalt der gewaehlten Seite in umrandeten Gruppen. Ein Klick auf den
-Schalter legt das Geraet um; der Zustand wird zyklisch nachgefuehrt, so
-dass Aenderungen von aussen von selbst erscheinen.
+Lampen, Steckdosen, Rollaeden, Sensoren und Heizungen aus Home
+Assistant, geordnet in eigenen Dashboards. Links eine Seitenleiste mit
+Symbolen, rechts der Inhalt der gewaehlten Seite in umrandeten Gruppen.
+Ein Klick auf den Schalter legt das Geraet um; der Zustand wird zyklisch
+nachgefuehrt, so dass Aenderungen von aussen von selbst erscheinen.
 
 Welche Geraete auftauchen und wie sie aussehen, bestimmst du. Eine
 grosse Home-Assistant-Installation hat schnell 900 Entitaeten, davon
@@ -111,23 +126,32 @@ willst du ein bis zwei Dutzend. Also gibt es eine Auswahl mit einem
 Vorschlag zum Ueberstimmen und einen Editor, in dem Seiten, Gruppen und
 Geraete frei zusammengestellt werden.
 
-NEU IN 0.6
+NEU IN 0.7
 
-Die Oberflaeche spricht jetzt Englisch, Deutsch, Italienisch und
-Spanisch. Englisch steckt fest im Programm, die anderen drei liegen als
-Katalog bei und werden ueber locale.library geladen. Fehlt die
-Bibliothek oder passt kein Katalog, laeuft alles auf Englisch weiter.
-Normalerweise folgt die Sprache der Einstellung aus Prefs/Locale; wer
-sein Workbench englisch faehrt, das Programm aber deutsch will, setzt
-AmiHomeassistLanguage.
+Heizungen. Die Domain climate kommt dazu, mit einer eigenen
+Darstellungsart: Ist- und Solltemperatur in einer Zeile, darunter drei
+Knoepfe - kaelter, waermer, Betriebsart. Gezaehlt wird in der
+Schrittweite des Geraets, beim einen ein halbes Grad, beim anderen ein
+ganzes. Temperaturen sind ganze Zehntelgrad, damit das Ganze weiter
+ohne FPU auskommt.
 
-Geraete- und Raumnamen, Einheiten und Zustaende kommen aus Home
-Assistant und waren damit ohnehin in deiner Sprache.
+Zeitgrenzen am Netz. Antwortet Home Assistant nicht, stand bis 0.6 das
+ganze Programm still, bis der TCP-Stack aufgab - gemessen 76 Sekunden
+je Versuch, ohne Fenster, ohne Menue, ohne Ctrl-C. Jetzt bricht der
+Verbindungsaufbau nach fuenf Sekunden ab, Senden und Empfangen nach
+fuenfzehn, und nach dem zweiten Fehlschlag in Folge wird nur noch alle
+dreissig Sekunden angeklopft, bis der Rechner wieder antwortet.
+Gemessen: 5,3 Sekunden statt 76.
 
-Uebersetzt wird jetzt mit m68k-amigaos-gcc statt mit SAS/C. Fuer dich
-aendert sich nichts: gleiches Ziel 68020 aufwaerts, mit und ohne FPU,
-und der Bau weist per Disassembler nach, dass keine FPU-Instruktion
-hineingeraten ist.
+Steht in den Einstellungen eine Zahlenadresse statt eines Namens,
+entfaellt die Namensaufloesung ganz - sie ist die einzige Wartestelle,
+die sich nicht begrenzen laesst.
+
+Zwei Stellen waren fest deutsch, auch in einem englischen Programm:
+die Rollladenzustaende und die Ausgabe der Shell-Fassung. Behoben.
+
+Die Zustandsabfrage laesst Home Assistant keine Protokollwarnungen mehr
+schreiben. In einer grossen Anlage kamen so tausende am Tag zusammen.
 
 DARSTELLUNGSARTEN
 
@@ -136,6 +160,8 @@ DARSTELLUNGSARTEN
   Zahl        sensor mit Einheit
   Balken      sensor mit festem Bereich, etwa Prozent oder Watt
   Rollladen   cover - Auf, Stop, Zu und die Stellung
+  Thermostat  climate - Ist- und Solltemperatur, kaelter, waermer und
+              die Betriebsart
   Text        eine Zwischenueberschrift
 
 Beim Hinzufuegen schlaegt das Programm eine Art vor, aus Domain und
@@ -160,6 +186,12 @@ VORAUSSETZUNGEN
   ein Long-Lived Access Token aus Home Assistant
 
 Eine Shell-Fassung liegt bei, die ohne MUI auskommt.
+
+Die Oberflaeche spricht Englisch, Deutsch, Italienisch und Spanisch.
+Englisch steckt fest im Programm, die anderen drei liegen als Katalog
+bei und werden ueber locale.library geladen. Geraete- und Raumnamen,
+Einheiten und Zustaende kommen aus Home Assistant und sind damit
+ohnehin in deiner Sprache.
 
 Der Quelltext liegt vollstaendig bei, MIT-Lizenz - ausser muistubs.c,
 das aus dem Projekt amimcp stammt und unter Apache 2.0 steht; der

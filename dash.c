@@ -254,6 +254,9 @@ int widget_kind_for(const struct Entity *e, long *min, long *max)
     if (strcmp(dom, "cover") == 0) {
         return WK_COVER;
     }
+    if (strcmp(dom, "climate") == 0) {
+        return WK_CLIMATE;
+    }
 
     /* Sensoren: als Balken nur, wenn der Bereich von sich aus feststeht.
      * Bei einer Temperatur waere jede Skala geraten, deshalb Zahl. */
@@ -372,15 +375,19 @@ static const char *kind_group(int kind)
         MSG_GROUP_READINGS,    /* WK_VALUE  */
         MSG_GROUP_READINGS,    /* WK_GAUGE  */
         MSG_GROUP_COVERS,      /* WK_COVER  */
-        -1                     /* WK_TEXT - ohne Ueberschrift */
+        -1,                    /* WK_TEXT - ohne Ueberschrift */
+        MSG_GROUP_CLIMATE      /* WK_CLIMATE */
     };
 
     return (ID[kind] < 0) ? "" : GetStr(ID[kind]);
 }
 
-/* Reihenfolge der Kaesten auf einer Seite. */
-static const int KIND_ORDER[5] = { WK_TOGGLE, WK_COVER, WK_LAMP, WK_VALUE,
-                                   WK_GAUGE };
+/* Reihenfolge der Kaesten auf einer Seite. Die Heizung steht oben: sie ist
+ * das einzige Bedienelement, das man im Winter taeglich anfasst. */
+#define KIND_ORDER_COUNT 6
+static const int KIND_ORDER[KIND_ORDER_COUNT] = { WK_CLIMATE, WK_TOGGLE,
+                                                  WK_COVER, WK_LAMP,
+                                                  WK_VALUE, WK_GAUGE };
 
 void dash_generate(struct Dash *d, struct Catalog *c)
 {
@@ -409,7 +416,7 @@ void dash_generate(struct Dash *d, struct Catalog *c)
 
         /* Fuer diesen Raum je Art einen Kasten anlegen, in fester
          * Reihenfolge - und value und gauge landen im selben. */
-        for (k = 0; k < 5; k++) {
+        for (k = 0; k < KIND_ORDER_COUNT; k++) {
             struct Group *grp = NULL;
             int kind_wanted = KIND_ORDER[k];
             int j;
@@ -494,7 +501,7 @@ void dash_mark_used(struct Dash *d, struct Catalog *c)
 /* ------------------------------------------------------------------ */
 
 static const char *KIND_NAME[WK_COUNT] = {
-    "toggle", "lamp", "value", "gauge", "cover", "text"
+    "toggle", "lamp", "value", "gauge", "cover", "text", "climate"
 };
 
 static int kind_from_name(const char *s)

@@ -153,8 +153,18 @@
 #define MSG_CLI_TURNEDOFF        148
 #define MSG_CLI_TOGGLED          149
 #define MSG_ERR_NOHTTPS          150
+#define MSG_ERR_TIMEOUT          151
+#define MSG_KIND_CLIMATE         152
+#define MSG_GROUP_CLIMATE        153
+#define MSG_HVAC_OFF             154
+#define MSG_HVAC_HEAT            155
+#define MSG_HVAC_COOL            156
+#define MSG_HVAC_AUTO            157
+#define MSG_HVAC_DRY             158
+#define MSG_HVAC_FAN             159
+#define MSG_HVAC_HEATCOOL        160
 
-#define AMILOC_COUNT 151
+#define AMILOC_COUNT 161
 
 /* Die eingebauten Texte sind Englisch - siehe amiloc.h. */
 static const char *const AMILOC_BUILTIN[AMILOC_COUNT] = {
@@ -309,6 +319,16 @@ static const char *const AMILOC_BUILTIN[AMILOC_COUNT] = {
     /* 148 */ "turned off",
     /* 149 */ "toggled",
     /* 150 */ "https is not supported - please use http://",
+    /* 151 */ "Home Assistant does not answer - timed out",
+    /* 152 */ "Thermostat",
+    /* 153 */ "Heating",
+    /* 154 */ "off",
+    /* 155 */ "heat",
+    /* 156 */ "cool",
+    /* 157 */ "auto",
+    /* 158 */ "dry",
+    /* 159 */ "fan",
+    /* 160 */ "heat/cool",
 };
 
 #endif

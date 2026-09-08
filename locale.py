@@ -133,7 +133,8 @@ def selftest(paths):
 # strings.cd / *.ct einlesen und daraus Header + Kataloge erzeugen
 # --------------------------------------------------------------------------
 
-VERSION = "0.6"
+VERSION = "0.7"
+DATE    = "01.09.2026"
 CATALOG_NAME = "AmiHomeassist.catalog"
 
 
@@ -283,7 +284,7 @@ def main():
                 strings.append((sid, unescape(value)))
             else:
                 missing.append(name)
-        ver = "$VER: %s %s (%s)" % (CATALOG_NAME, VERSION, "31.08.2026")
+        ver = "$VER: %s %s (%s)" % (CATALOG_NAME, VERSION, DATE)
         data = build_catalog(lang, ver, strings)
         d = os.path.join(outdir, lang)
         os.makedirs(d, exist_ok=True)
