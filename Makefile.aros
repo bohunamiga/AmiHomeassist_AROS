@@ -1,0 +1,73 @@
+# AmiHomeassist - Cross-Build fuer AROS aarch64 (raspi-aarch64).
+#
+# Der 68k-Makefile hat kein Aequivalent hierzu anzubieten: dort sind
+# -mcpu=68020, -noixemul, die libamiga-DoMethod-Extraktion und check-fpu
+# fest an der m68k-Toolchain verdrahtet. AROS braucht davon nichts:
+#   - AROS baut mit LLVM/Clang oder GNU; der Toolchain-Name ist je nach
+#     Ziel anders (siehe AROS_. Experimental leisten raspi-aarch64 und
+#     der gehostete Darwin-aarch64-Port, genannt Macaros).
+#   - muimaster.library (Zune), IntuitionBase, LocaleBase usw. werden
+#     vom AROS-Compiler automatisch geoeffnet - daher die __AROS__-Zweige
+#     in gui.c und amiloc.c. muistubs.c und build/DoMethod.o werden hier
+#     NICHT benoetigt.
+#   - NList/NListview sind Teil des AROS-SDK (include/mui/): die lokal
+#     mitgelieferten Source/mui-Kopien werden unter __AROS__ NICHT benutzt.
+#   - check-fpu ist eine 68k-Kontrolle (m68k-amigaos-objdump) und bleibt
+#     hier aussen vor.
+#
+#   make -f Makefile.aros            → AmiHomeassist + AmiHomeassistCLI
+#   make -f Makefile.aros clean
+#
+# Einstellbare Variablen:
+#   AROS_CC       Cross-Compiler, Vorgabe aarch64-aros-gcc;
+#                 LLVM-Variante:   AROS_CC=aarch64-aros-clang
+#                 hosted Darwin:   AROS_CC=aarch64-aros-clang AROS_ABI=-ffixed-x18
+#   AROS_SYSROOT  Pfad zum AROS-SDK (--sysroot fuer Clang).
+#   NETINCLUDE    optional, -I-Pfad zu AmiTCP/bsdsocket-Headern. Das
+#                 AROS-SDK liefert sie inzwischen selbst (proto/socket.h,
+#                 sys/socket.h, netinet/in.h, netdb.h im Sysroot/Include);
+#                 nur bei aelteren SDKs noetig.
+
+AROS_CC      ?= aarch64-aros-gcc
+AROS_SYSROOT ?=
+AROS_ABI     ?=                  # fuer hosted Darwin: -ffixed-x18
+
+NETINCLUDE   ?=                  # -I/pfad/zu/amitcp/sdk/netinclude
+
+CC      = $(AROS_CC)
+CFLAGS  = $(AROS_ABI) -O2 -fomit-frame-pointer -MMD -MP \
+          -Wall -Wextra -Wno-unused-parameter -Wno-pointer-sign \
+          $(NETINCLUDE) \
+          $(if $(AROS_SYSROOT),--sysroot=$(AROS_SYSROOT))
+LDFLAGS = $(if $(AROS_SYSROOT),--sysroot=$(AROS_SYSROOT))
+# Auf AROS nicht -lamiga linken: erstens bekampft (siehe Makefile) das
+# RawDoFmt-sprintf-Problem, zweitens liefert der AROS-MUI (Zune)
+# DoMethod()/set()/get() ueber seine eigenen Header.
+
+GUI_OBJS = amiha.o dash.o edit.o gui.o icons.o icons_mdi.o logo.o amiloc.o
+CLI_OBJS = amiha.o dash.o cli.o amiloc.o
+
+all: locale_strings.h AmiHomeassist AmiHomeassistCLI
+
+# Kataloge und die MSG_-Nummern entstehen aus strings.cd und catalogs/*.ct
+# - dasselbe locale.py wie im 68k-Build. Die Catalog-Dateien sind im
+# Format FORM/CTLG und werden auch von AROS' locale.library gelesen.
+locale_strings.h: strings.cd $(wildcard catalogs/*.ct) locale.py
+	python3 locale.py
+
+AmiHomeassist: $(GUI_OBJS)
+	$(CC) $(CFLAGS) -o $@ $(GUI_OBJS) $(LDFLAGS)
+
+AmiHomeassistCLI: $(CLI_OBJS)
+	$(CC) $(CFLAGS) -o $@ $(CLI_OBJS) $(LDFLAGS)
+
+%.o: %.c locale_strings.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+-include $(GUI_OBJS:.o=.d) $(CLI_OBJS:.o=.d)
+
+clean:
+	rm -rf *.o *.d AmiHomeassist AmiHomeassistCLI
+	rm -rf locale_strings.h dist-catalogs
+
+.PHONY: all clean
