@@ -1,0 +1,14 @@
+# Build output
+*.o
+*.d
+build/
+dist-catalogs/
+/AmiHomeassist
+/AmiHomeassistCLI
+__pycache__/
+
+# MUI developer headers - not redistributable, see README
+vendor/
+
+# Local helpers
+.DS_Store
