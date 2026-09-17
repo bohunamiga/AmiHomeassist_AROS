@@ -22,6 +22,15 @@
 /* siehe amiha.c: netinclude verdeckt SAS/Cs proto/dos.h */
 extern struct DosLibrary *DOSBase;
 
+/* ReadArgs() legt die Zeiger auf die Tokens in der Tabelle ab. Auf einem
+ * 64-Bit-AROS ist das eine IPTR-Tabelle (SIPTR), auf dem 68k schlicht
+ * LONG - beides ist hier kompatibel, solange die richtige Breite gilt. */
+#ifdef __AROS__
+typedef SIPTR ReadArg;
+#else
+typedef LONG ReadArg;
+#endif
+
 const char *VERSTAG = "$VER: AmiHomeassist 0.7 (1.9.2026)";
 
 #define TEMPLATE "ALL/S,DOMAIN/K,ON/K,OFF/K,TOGGLE/K,STATES/S,DASH/S,HOST/K,TOKEN/K,SAVE/S"
@@ -213,7 +222,8 @@ static void do_service(struct Prefs *p, const char *entity, const char *service,
 int main(void)
 {
     struct RDArgs *rda;
-    LONG args[ARG_COUNT];
+    /* Auf 64-Bit-AROS ist die ReadArgs-Tabelle SIPTR groesser als LONG! */
+    ReadArg args[ARG_COUNT];
     struct Prefs prefs;
     int rc;
 

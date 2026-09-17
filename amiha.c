@@ -37,7 +37,7 @@ void ah_trace(const char *what, long value)
     BPTR fh = Open((STRPTR)"RAM:amiha.log", MODE_READWRITE);
     if (fh) {
         Seek(fh, 0, OFFSET_END);
-        FPrintf(fh, "%s %ld\n", (LONG)(ULONG)what, value);
+        FPrintf(fh, "%s %ld\n", what, value);
         Close(fh);
     }
 #endif
@@ -234,12 +234,12 @@ static int prefs_write_one(struct Prefs *p, const char *dir)
         return 0;
     }
 
-    FPrintf(fh, "%s", (LONG)(ULONG)GetStr(MSG_FILE_PREFS_HEAD));
-    FPrintf(fh, "%s", (LONG)(ULONG)GetStr(MSG_FILE_PREFS_NOTE));
-    FPrintf(fh, "host=http://%s:%ld\n", (LONG)(ULONG)p->host, (LONG)p->port);
-    FPrintf(fh, "token=%s\n", (LONG)(ULONG)p->token);
-    FPrintf(fh, "%s", (LONG)(ULONG)GetStr(MSG_FILE_PREFS_POLL));
-    FPrintf(fh, "poll=%ld\n", (LONG)p->poll);
+    FPrintf(fh, "%s", GetStr(MSG_FILE_PREFS_HEAD));
+    FPrintf(fh, "%s", GetStr(MSG_FILE_PREFS_NOTE));
+    FPrintf(fh, "host=http://%s:%ld\n", p->host, (long)p->port);
+    FPrintf(fh, "token=%s\n", p->token);
+    FPrintf(fh, "%s", GetStr(MSG_FILE_PREFS_POLL));
+    FPrintf(fh, "poll=%ld\n", (long)p->poll);
 
     Close(fh);
     return 1;
@@ -377,10 +377,10 @@ int import_save(struct Catalog *c)
         return fail(AH_ENOPREFS, GetStr(MSG_ERR_IMPORTWRITE));
     }
 
-    FPrintf(fh, "%s", (LONG)(ULONG)GetStr(MSG_FILE_IMPORT_HEAD));
+    FPrintf(fh, "%s", GetStr(MSG_FILE_IMPORT_HEAD));
     for (i = 0; i < c->count; i++) {
         if (c->list[i].selected) {
-            FPrintf(fh, "%s\n", (LONG)(ULONG)c->list[i].id);
+            FPrintf(fh, "%s\n", c->list[i].id);
         }
     }
     Close(fh);

@@ -12,8 +12,13 @@
  * In a separate TU the caller cannot know the args are unread and must
  * pass them all per the m68k stack ABI; (&tag1) then really is the start
  * of a contiguous tag list - the classic Amiga stub idiom.
+ *
+ * m68k AmigaOS only. On AROS (which defines __AROS__, not __amigaos__)
+ * this unit compiles to nothing: there the toolchain and muimaster drive
+ * variadic tag lists through the native C ABI, and the stack trick below
+ * would corrupt arguments.
  */
-#ifdef __amigaos__
+#if defined(__amigaos__) && !defined(__AROS__)
 
 #include <exec/types.h>
 #include <utility/tagitem.h>

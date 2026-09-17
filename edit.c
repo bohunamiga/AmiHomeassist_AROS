@@ -12,16 +12,24 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifndef __AROS__
 #ifndef IPTR
 typedef ULONG IPTR;
+#endif
 #endif
 #ifndef MAKE_ID
 #define MAKE_ID(a,b,c,d) \
     ((ULONG)(a)<<24 | (ULONG)(b)<<16 | (ULONG)(c)<<8 | (ULONG)(d))
 #endif
 
+#ifdef __AROS__
+/* AROS/Zune bringt NList/NListview im SDK mit, inkl. Include-Pfad <mui/>. */
+#include <mui/NList_mcc.h>
+#include <mui/NListview_mcc.h>
+#else
 #include "mui/NList_mcc.h"
 #include "mui/NListview_mcc.h"
+#endif
 
 #include "amiha.h"
 #include "amiloc.h"

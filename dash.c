@@ -303,7 +303,7 @@ static const struct AreaWord AREA_ICON[] = {
     {"Ufficio", 0}, {"Bagno", 1}, {"Soffitta", 2}, {"Giardino", 4},
     {"Cantina", 5}, {"Cucina", 6}, {"Camera", 7}, {"Camera da letto", 7},
     {"Scale", 9}, {"Lavanderia", 10}, {"Soggiorno", 11}, {"Salotto", 11},
-    /* español */
+    /* espaï¿½ol */
     {"Oficina", 0}, {"Despacho", 0}, {"Bano", 1}, {"Desvan", 2},
     {"Jardin", 4}, {"Sotano", 5}, {"Cocina", 6}, {"Dormitorio", 7},
     {"Aseo", 8}, {"Escalera", 9}, {"Lavadero", 10}, {"Salon", 11}
@@ -547,35 +547,35 @@ int dash_save(struct Dash *d)
         return AH_ENOPREFS;
     }
 
-    FPrintf(fh, "%s", (LONG)(ULONG)GetStr(MSG_FILE_DASH_HEAD));
-    FPrintf(fh, "%s", (LONG)(ULONG)GetStr(MSG_FILE_DASH_NOTE));
+    FPrintf(fh, "%s", GetStr(MSG_FILE_DASH_HEAD));
+    FPrintf(fh, "%s", GetStr(MSG_FILE_DASH_NOTE));
     FPrintf(fh, ";   page \"Titel\" icon <n> ... end\n");
     FPrintf(fh, ";   group \"Titel\" ... end\n");
     FPrintf(fh, ";   <art> <entity> \"Beschriftung\" [min max]\n");
-    FPrintf(fh, "%s", (LONG)(ULONG)GetStr(MSG_FILE_DASH_KINDS));
+    FPrintf(fh, "%s", GetStr(MSG_FILE_DASH_KINDS));
 
     for (i = 0; i < d->count; i++) {
         struct Page *p = &d->p[i];
 
         FPrintf(fh, "page \"%s\" icon %ld\n",
-                (LONG)(ULONG)p->title, (LONG)p->icon);
+                p->title, (long)p->icon);
         for (j = 0; j < p->count; j++) {
             struct Group *g = &p->g[j];
 
-            FPrintf(fh, "  group \"%s\"\n", (LONG)(ULONG)g->title);
+            FPrintf(fh, "  group \"%s\"\n", g->title);
             for (k = 0; k < g->count; k++) {
                 struct Widget *w = &g->w[k];
 
                 if (w->kind == WK_GAUGE) {
                     FPrintf(fh, "    gauge %s \"%s\" %ld %ld\n",
-                            (LONG)(ULONG)w->id, (LONG)(ULONG)w->label,
-                            (LONG)w->min, (LONG)w->max);
+                            w->id, w->label,
+                            (long)w->min, (long)w->max);
                 } else if (w->kind == WK_TEXT) {
-                    FPrintf(fh, "    text - \"%s\"\n", (LONG)(ULONG)w->label);
+                    FPrintf(fh, "    text - \"%s\"\n", w->label);
                 } else {
                     FPrintf(fh, "    %s %s \"%s\"\n",
-                            (LONG)(ULONG)KIND_NAME[w->kind],
-                            (LONG)(ULONG)w->id, (LONG)(ULONG)w->label);
+                            KIND_NAME[w->kind],
+                            w->id, w->label);
                 }
             }
             FPrintf(fh, "  end\n");

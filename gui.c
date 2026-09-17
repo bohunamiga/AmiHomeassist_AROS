@@ -26,8 +26,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifndef __AROS__
 #ifndef IPTR
 typedef ULONG IPTR;
+#endif
 #endif
 
 #ifndef MAKE_ID
@@ -35,8 +37,14 @@ typedef ULONG IPTR;
     ((ULONG)(a)<<24 | (ULONG)(b)<<16 | (ULONG)(c)<<8 | (ULONG)(d))
 #endif
 
+#ifdef __AROS__
+/* AROS/Zune bringt NList/NListview im SDK mit, inkl. Include-Pfad <mui/>. */
+#include <mui/NList_mcc.h>
+#include <mui/NListview_mcc.h>
+#else
 #include "mui/NList_mcc.h"
 #include "mui/NListview_mcc.h"
+#endif
 
 #include "amiha.h"
 #include "amiloc.h"
@@ -46,8 +54,13 @@ typedef ULONG IPTR;
 
 extern struct DosLibrary *DOSBase;
 
+/* Auf AROS (Zune) oeffnet der Compiler die Kernbibliotheken von selbst und
+ * stellt die Base-Symbole bereit; nur AmigaOS braucht die Definition und
+ * das manuelle Oeffnen weiter unten. */
+#ifndef __AROS__
 struct IntuitionBase *IntuitionBase = NULL;
 struct Library *MUIMasterBase = NULL;
+#endif
 
 const char *VERSTAG = "$VER: AmiHomeassist 0.7 (1.9.2026)";
 
@@ -478,7 +491,7 @@ static Object *build_widget(struct Widget *w)
             if (row) {
                 wui_add(w, e, ctl, NULL, NULL);
                 g_wui[g_wui_count - 1].ctl2 = b_mode;
-                /* Dieselben Vierersprünge wie beim Rollladen:
+                /* Dieselben Vierersprï¿½nge wie beim Rollladen:
                  * +1 kaelter, +2 waermer, +3 Betriebsart. */
                 {
                     int n = (g_wui_count - 1) * 4;
@@ -1100,6 +1113,7 @@ int main(void)
      * beiden Fehlermeldungen gleich hier drunter. */
     locale_open();
 
+#ifndef __AROS__
     IntuitionBase = (struct IntuitionBase *)
                         OpenLibrary("intuition.library", 37);
     if (!IntuitionBase) {
@@ -1114,6 +1128,20 @@ int main(void)
         locale_close();
         return 20;
     }
+#else
+    /* AROS stellt IntuitionBase und MUIMasterBase ueber den Auto-Open
+     * des Compilers bereit - uebrig bleibt nur die Pruefung. */
+    if (!IntuitionBase) {
+        printf("%s\n", GetStr(MSG_ERR_NOINTUITION));
+        locale_close();
+        return 20;
+    }
+    if (!MUIMasterBase) {
+        printf("%s\n", GetStr(MSG_ERR_NOMUI));
+        locale_close();
+        return 20;
+    }
+#endif
 
     catalog_init(&g_cat);
     dash_init(&g_dash);
@@ -1274,8 +1302,10 @@ int main(void)
 
     if (!app) {
         printf("%s\n", GetStr(MSG_ERR_NOGUI));
+#ifndef __AROS__
         CloseLibrary(MUIMasterBase);
         CloseLibrary((struct Library *)IntuitionBase);
+#endif
         return 20;
     }
 
@@ -1526,8 +1556,10 @@ int main(void)
     MUI_DisposeObject(app);
     dash_free(&g_dash);
     catalog_free(&g_cat);
+#ifndef __AROS__
     CloseLibrary(MUIMasterBase);
     CloseLibrary((struct Library *)IntuitionBase);
+#endif
     locale_close();
     return 0;
 }
