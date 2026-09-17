@@ -5,6 +5,8 @@ Lights, sockets, blinds, climate and sensors arranged on dashboards of your
 own, with a MUI interface: dashboards in a sidebar on the left, the chosen
 page on the right.
 
+![AmiHomeassist on Workbench 3.2](docs/screenshot.png)
+
 - AmigaOS 2.0+, 68020 or better, no FPU needed
 - MUI 3.8+ with NList.mcc / NListview.mcc
 - Any TCP/IP stack with `bsdsocket.library` (Roadshow, AmiTCP, Miami, ...)
