@@ -1,0 +1,96 @@
+# AmiHomeassist - Cross-Build fuer AROS x86_64 (pc-x86_64, 64 Bit).
+#
+# Getrennt vom aarch64-Makefile, weil der x86_64-Port ein anderes
+# Linkmodell hat:
+#
+#   - Der aarch64-Build nimmt die in den GCC-Specs eingebauten Listen
+#     (-lmui -larossupport -lposixc -lstdcio ...) und die C-Bibliothek
+#     steckt als libposixc/libstdcio/libstdc im Developer/lib.
+#   - x86_64 kennt diese Namen nicht. Die C-Laufzeit heisst hier
+#     libcrt/libcrtprog/libstdlib/libstdc.static, und der Build-Tree
+#     unter build-x86_64/Developer enthaelt sie NICHT - sie liegen nur
+#     im vollstaendigen SDK (OpenCodeStarterPack/SDK/Development).
+#     Deshalb wird hier mit -nostdlib gelinkt und die Bibliotheken
+#     ausdruecklich aufgezaehlt, genau wie im x86_64-Makefile von
+#     TelegramAmiga.
+#
+#   - -mcmodel=large ist die ISA-Vorgabe des pc-x86_64-Ports (siehe
+#     target.cfg).
+#
+#   - Statt elf-startup.o nimmt der x86_64-Linker startup.o.
+#
+#   make -f Makefile.aros-x86_64            → AmiHomeassist + AmiHomeassistCLI
+#   make -f Makefile.aros-x86_64 clean
+#
+# Einstellbare Variablen:
+#   AROS_TOOLCHAIN  Wurzel der x86_64-AROS-Crosstools (x86_64-aros-gcc).
+#   AROS_SDK_ROOT   vollstaendiges Developer-SDK (include + lib).
+#   AROS_GCC_ROOT   lib/gcc-Verzeichnis des Toolsets (Compiler-Header).
+
+AROS_TOOLCHAIN ?= $(HOME)/aros-bezpieczny-workspace/aros-toolchain-x86_64
+AROS_SDK_ROOT  ?= $(HOME)/Downloads/OpenCodeStarterPack/SDK/Development
+AROS_GCC_ROOT  ?= $(AROS_TOOLCHAIN)/bin/lib/gcc/x86_64-aros/10.5.0
+
+CC        = $(AROS_TOOLCHAIN)/bin/x86_64-aros-gcc
+OBJCOPY   = $(AROS_TOOLCHAIN)/bin/x86_64-aros-objcopy
+OBJDUMP   = $(AROS_TOOLCHAIN)/bin/x86_64-aros-objdump
+
+CFLAGS  = -nostdinc \
+          -isystem $(AROS_GCC_ROOT)/include \
+          -isystem $(AROS_GCC_ROOT)/include-fixed \
+          -I$(AROS_SDK_ROOT)/include/aros/posixc \
+          -I$(AROS_SDK_ROOT)/include/aros/stdc \
+          -I$(AROS_SDK_ROOT)/include \
+          -O2 -mcmodel=large -fno-asynchronous-unwind-tables \
+          -MMD -MP \
+          -Wall -Wextra -Wno-unused-parameter -Wno-pointer-sign
+
+# --ld-path zeigt collect-aros direkt auf den AROS-ld. Ohne das greift
+# die im gcc einkompilierte Configure-Pfadangabe (aus dem Build-Baum,
+# z. B. /work/build-x86_64/...), die ausserhalb des Baucontainers nicht
+# existiert.
+LDFLAGS = -nostdlib -L$(AROS_SDK_ROOT)/lib -L$(AROS_GCC_ROOT) \
+          -Wl,--ld-path=$(AROS_TOOLCHAIN)/bin/x86_64-aros-ld
+
+# startup.o muss VOR den Objekten stehen - es ist der CRT-Einsprung.
+LDSTART = $(AROS_SDK_ROOT)/lib/startup.o
+
+# Reihenfolge: CRT/Laufzeit, dann die von der App (auto-)geoeffneten
+# Bibliotheken, dann die Basis -lgcc -lautoinit -lamiga erneut, damit
+# auch die letzten Autoinit-Symbole aufgeloest werden.
+LDLIBS  = -lautoinit -lcrtprog -lcrt -lstdlib -lstdc.static \
+          -lmui -lmuimaster -lintuition -lgraphics -llocale -lkeymap \
+          -llayers -ldatatypes -lcybergraphics -lgadtools -licon \
+          -lworkbench -liffparse -lasl -ldiskfont -lcommodities \
+          -lexpansion -lcodesets -lpartition \
+          -laros -ldos -lexec -lutility -lgcc -lautoinit -lamiga -llibinit
+
+GUI_OBJS = amiha.o dash.o edit.o gui.o icons.o icons_mdi.o logo.o amiloc.o
+CLI_OBJS = amiha.o dash.o cli.o amiloc.o
+
+# Suffix, damit aarch64- und x86_64-Binaries nebeneinander liegen koennen.
+SUFFIX   = .x86_64
+GUI_BIN  = AmiHomeassist$(SUFFIX)
+CLI_BIN  = AmiHomeassistCLI$(SUFFIX)
+
+all: locale_strings.h $(GUI_BIN) $(CLI_BIN)
+
+locale_strings.h: strings.cd $(wildcard catalogs/*.ct) locale.py
+	python3 locale.py
+
+$(GUI_BIN): $(GUI_OBJS)
+	$(CC) $(LDFLAGS) $(LDSTART) -o $@ $(GUI_OBJS) $(LDLIBS)
+
+$(CLI_BIN): $(CLI_OBJS)
+	$(CC) $(LDFLAGS) $(LDSTART) -o $@ $(CLI_OBJS) $(LDLIBS)
+
+%.o: %.c locale_strings.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+-include $(GUI_OBJS:.o=.d) $(CLI_OBJS:.o=.d)
+
+clean:
+	rm -rf *.o *.d $(GUI_BIN) $(CLI_BIN)
+	rm -rf locale_strings.h dist-catalogs
+
+.PHONY: all clean

@@ -5,6 +5,8 @@ build/
 dist-catalogs/
 /AmiHomeassist
 /AmiHomeassistCLI
+/AmiHomeassist.x86_64
+/AmiHomeassistCLI.x86_64
 __pycache__/
 
 # MUI developer headers - not redistributable, see README
