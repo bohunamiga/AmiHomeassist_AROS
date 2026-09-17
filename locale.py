@@ -66,12 +66,12 @@ def _strs(strings, nul_in_len=True):
     return body
 
 
-def build_catalog(language, version_line, strings, nul_in_len=True):
+def build_catalog(language, version_line, strings, nul_in_len=True, codeset=0):
     """Baut eine vollstaendige .catalog-Datei als bytes."""
     body = b"CTLG"
     body += _chunk(b"FVER", to_amiga(version_line) + b"\0")
     body += _chunk(b"LANG", to_amiga(language) + b"\0")
-    body += _chunk(b"CSET", b"\0" * 32)
+    body += _chunk(b"CSET", struct.pack(">I", codeset) + b"\0" * 28)
     body += _chunk(b"STRS", _strs(strings, nul_in_len))
     return b"FORM" + struct.pack(">I", len(body)) + body
 
@@ -92,6 +92,8 @@ def parse_catalog(data):
                 o += 8
                 out["strings"].append((sid, chunk[o:o + slen].rstrip(b"\0")))
                 o += slen + (-slen) % 4
+        elif cid == b"CSET":
+            out["cset"] = struct.unpack(">I", chunk[:4])[0]
         else:
             out[cid.decode()] = chunk.rstrip(b"\0")
         off += 8 + ln + (ln & 1)
@@ -110,7 +112,8 @@ def selftest(paths):
         for style in (True, False):
             rebuilt = build_catalog(c["LANG"].decode("latin-1"),
                                     c["FVER"].decode("latin-1"),
-                                    c["strings"], nul_in_len=style)
+                                    c["strings"], nul_in_len=style,
+                                    codeset=c.get("cset", 0))
             if rebuilt == original:
                 same = True
                 used = "catcomp" if style else "FlexCat"
@@ -152,17 +155,63 @@ def to_amiga(s):
                          % (s[e.start:e.end], s))
 
 
-def unescape(s):
+# ISO-8859-2 (Mittel-/Osteuropa) fuer Sprachen wie 'polski'. Die Katalog-
+# Dateien sind wie alle anderen UTF-8; erst beim Schreiben wird umgesetzt.
+# Der zugehoerige Codeset-Wert im CSET-Chunk ist 5 (siehe AROS workbench).
+LATIN2_MAP = {
+    "\u0104": b"\xa1",   # Ą
+    "\u0106": b"\xc6",   # Ć
+    "\u0118": b"\xca",   # Ę
+    "\u0141": b"\xa3",   # Ł
+    "\u0143": b"\xd1",   # Ń
+    "\u00d3": b"\xd3",   # Ó
+    "\u015a": b"\xa6",   # Ś
+    "\u0179": b"\xac",   # Ź
+    "\u017b": b"\xaf",   # Ż
+    "\u0105": b"\xb1",   # ą
+    "\u0107": b"\xe6",   # ć
+    "\u0119": b"\xea",   # ę
+    "\u0142": b"\xb3",   # ł
+    "\u0144": b"\xf1",   # ń
+    "\u00f3": b"\xf3",   # ó
+    "\u015b": b"\xb6",   # ś
+    "\u017a": b"\xbc",   # ź
+    "\u017c": b"\xbf",   # ż
+}
+
+
+def to_latin2(s):
+    """UTF-8 nach ISO-8859-2 umsetzen - fuer polski. Hart abbrechen bei
+    Zeichen, die es dort nicht gibt (statt still zu Muell zu werden)."""
+    out = bytearray()
+    for ch in s:
+        if ord(ch) < 128:
+            out.append(ord(ch))
+        elif ch in LATIN2_MAP:
+            out += LATIN2_MAP[ch]
+        else:
+            raise SystemExit(
+                "Zeichen nicht in ISO-8859-2 darstellbar: %r in %r" % (ch, s))
+    return bytes(out)
+
+
+def codec_for(codeset):
+    """Der Zeichensatz-Uebersetzer zur Codeset-Nummer aus ## codeset."""
+    return to_latin2 if codeset == 5 else to_amiga
+
+
+def unescape(s, enc=to_amiga):
     """C-Escapes in echte Bytes wandeln - fuer die Katalogdatei.
 
     Gebraucht werden \n, \t, \\ und oktale Folgen wie \33 (ESC), mit dem
-    MUI seine Textauszeichnung einleitet.
+    MUI seine Textauszeichnung einleitet. 'enc' ist der Zeichensatz-
+    Uebersetzer fuer den Codeset der Sprache.
     """
     out = bytearray()
     i = 0
     while i < len(s):
         if s[i] != "\\":
-            out += to_amiga(s[i])
+            out += enc(s[i])
             i += 1
             continue
         i += 1
@@ -175,7 +224,7 @@ def unescape(s):
             i = j
         else:
             out += {"n": b"\n", "t": b"\t", "\\": b"\\",
-                    '"': b'"', "e": b"\x1b"}.get(c, to_amiga(c))
+                    '"': b'"', "e": b"\x1b"}.get(c, enc(c))
             i += 1
     return bytes(out)
 
@@ -209,14 +258,18 @@ def read_cd(path):
 
 
 def read_ct(path):
-    """Eine Uebersetzung lesen -> (sprache, {name: roher Text})."""
+    """Eine Uebersetzung lesen -> (sprache, codeset, {name: roher Text})."""
     lang = None
+    codeset = 0
     out = {}
     pending = None
     for line in open(path, encoding="utf-8"):
         line = line.rstrip("\n")
         if line.startswith("## language"):
             lang = line.split(None, 2)[2].strip()
+            continue
+        if line.startswith("## codeset"):
+            codeset = int(line.split(None, 2)[2].strip() or 0)
             continue
         # Die Pruefung auf einen wartenden Namen MUSS vor der auf
         # Kommentare stehen: mehrere Texte fangen selbst mit ';' an - es
@@ -234,7 +287,7 @@ def read_ct(path):
         if not line.strip():
             continue
         pending = line.strip()
-    return lang, out
+    return lang, codeset, out
 
 
 def write_header(entries, path):
@@ -267,7 +320,8 @@ def main():
     for ct in sorted(os.listdir(ctdir)):
         if not ct.endswith(".ct"):
             continue
-        lang, trans = read_ct(os.path.join(ctdir, ct))
+        lang, codeset, trans = read_ct(os.path.join(ctdir, ct))
+        enc = codec_for(codeset)
         strings = []
         missing = []
         for name, sid, builtin in entries:
@@ -281,11 +335,11 @@ def main():
                         "%s: %s hat als Text den Namen %s - die Datei ist "
                         "um einen Eintrag verrutscht"
                         % (ct, name, value.strip()))
-                strings.append((sid, unescape(value)))
+                strings.append((sid, unescape(value, enc)))
             else:
                 missing.append(name)
         ver = "$VER: %s %s (%s)" % (CATALOG_NAME, VERSION, DATE)
-        data = build_catalog(lang, ver, strings)
+        data = build_catalog(lang, ver, strings, codeset=codeset)
         d = os.path.join(outdir, lang)
         os.makedirs(d, exist_ok=True)
         open(os.path.join(d, CATALOG_NAME), "wb").write(data)
