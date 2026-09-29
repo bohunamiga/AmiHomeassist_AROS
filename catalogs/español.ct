@@ -323,3 +323,13 @@ MSG_HVAC_FAN
 ventilar
 MSG_HVAC_HEATCOOL
 frío/calor
+MSG_LBL_UNKNOWN
+Valores _desconocidos
+MSG_UNK_SHOW
+mostrar
+MSG_UNK_DIM
+en gris
+MSG_UNK_HIDE
+ocultar
+MSG_FILE_PREFS_UNKNOWN
+\n; Valores desconocidos o no disponibles: 0 mostrar, 1 en gris, 2 ocultar\n

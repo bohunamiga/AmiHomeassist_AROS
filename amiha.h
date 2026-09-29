@@ -28,6 +28,11 @@
 
 /* Die laengste Entity-ID in der Testanlage hat 74 Zeichen, also ist 96 kein
  * geratener Wert sondern gemessen plus Reserve. */
+/* Die Versionsnummer an genau einer Stelle: $VER in beiden Programmen und
+ * die kleine Zeile unter dem Logo kommen von hier. */
+#define AH_VERSION "0.8"
+#define AH_DATE    "29.9.2026"
+
 #define ID_LEN     96
 #define NAME_LEN   64
 #define AREA_LEN   40
@@ -85,7 +90,15 @@ struct Prefs {
     int  port;
     char token[600];
     int  poll;                  /* Sekunden zwischen zwei Abfragen */
+    int  unknown;               /* AH_UNK_*: wie "unknown" & Co. erscheinen */
 };
+
+/* Werte, die Home Assistant nicht kennt - "unknown", "unavailable", "none"
+ * oder leer. Ausgegraut ist die Voreinstellung: man sieht, dass das Geraet
+ * da ist, aber gerade nichts liefert. */
+#define AH_UNK_SHOW 0
+#define AH_UNK_DIM  1
+#define AH_UNK_HIDE 2
 
 #define AH_OK        0
 #define AH_ENOPREFS  1          /* Einstellungen fehlen oder unvollstaendig */

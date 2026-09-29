@@ -323,3 +323,13 @@ MSG_HVAC_FAN
 lüften
 MSG_HVAC_HEATCOOL
 heizen/kühlen
+MSG_LBL_UNKNOWN
+_Unbekannte Werte
+MSG_UNK_SHOW
+anzeigen
+MSG_UNK_DIM
+ausgrauen
+MSG_UNK_HIDE
+ausblenden
+MSG_FILE_PREFS_UNKNOWN
+\n; Unbekannte oder nicht verfügbare Werte: 0 anzeigen, 1 ausgrauen, 2 ausblenden\n

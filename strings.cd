@@ -357,3 +357,13 @@ MSG_HVAC_FAN (//)
 fan
 MSG_HVAC_HEATCOOL (//)
 heat/cool
+MSG_LBL_UNKNOWN (//)
+_Unknown values
+MSG_UNK_SHOW (//)
+show
+MSG_UNK_DIM (//)
+grey out
+MSG_UNK_HIDE (//)
+hide
+MSG_FILE_PREFS_UNKNOWN (//)
+\n; Unknown or unavailable values: 0 show, 1 grey out, 2 hide\n

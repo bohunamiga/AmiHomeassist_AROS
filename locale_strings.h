@@ -163,8 +163,13 @@
 #define MSG_HVAC_DRY             158
 #define MSG_HVAC_FAN             159
 #define MSG_HVAC_HEATCOOL        160
+#define MSG_LBL_UNKNOWN          161
+#define MSG_UNK_SHOW             162
+#define MSG_UNK_DIM              163
+#define MSG_UNK_HIDE             164
+#define MSG_FILE_PREFS_UNKNOWN   165
 
-#define AMILOC_COUNT 161
+#define AMILOC_COUNT 166
 
 /* Die eingebauten Texte sind Englisch - siehe amiloc.h. */
 static const char *const AMILOC_BUILTIN[AMILOC_COUNT] = {
@@ -329,6 +334,11 @@ static const char *const AMILOC_BUILTIN[AMILOC_COUNT] = {
     /* 158 */ "dry",
     /* 159 */ "fan",
     /* 160 */ "heat/cool",
+    /* 161 */ "_Unknown values",
+    /* 162 */ "show",
+    /* 163 */ "grey out",
+    /* 164 */ "hide",
+    /* 165 */ "\n; Unknown or unavailable values: 0 show, 1 grey out, 2 hide\n",
 };
 
 #endif

@@ -1,8 +1,8 @@
-AmiHomeassist 0.7
+AmiHomeassist 0.8
 =================
 
   English below, deutsche Fassung weiter unten.
-  Deutsche Fassung ab "AmiHomeassist 0.7 - Deutsch".
+  Deutsche Fassung ab "AmiHomeassist 0.8 - Deutsch".
 
 
 ENGLISH
@@ -47,8 +47,11 @@ SETTING UP
   2. Start AmiHomeassist. On the first run the settings window opens by
      itself. Enter the address and the token, then Save.
 
-         Address      http://homeassistant:8123
-         Interval     how often states are fetched
+         Address         http://homeassistant:8123
+         Interval        how often states are fetched
+         Unknown values  what to do with devices that report
+                         "unknown" or "unavailable": show them,
+                         grey them out (the default) or hide them
 
      Over a slow link use 15 or 30 seconds.
 
@@ -70,7 +73,11 @@ THE THREE WINDOWS
                 anything unavailable.
 
   Edit          create pages, form groups, add devices, choose the
-                widget kind and the icon, reorder.
+                widget kind and the icon, reorder. To reorder, drag
+                with the mouse: a device into another place or group,
+                a whole group by its heading, a page in the page list.
+                Up and Down do the same from the keyboard. Nothing is
+                written to disk until you press Save.
 
 
 WIDGET KINDS
@@ -216,7 +223,7 @@ BUILDING IT YOURSELF
 
 ================================================================
 
-AmiHomeassist 0.7 - Deutsch
+AmiHomeassist 0.8 - Deutsch
 ===========================
 
 Home Assistant vom Amiga aus: Lampen, Steckdosen, Rollaeden und
@@ -261,8 +268,11 @@ EINRICHTEN
   2. AmiHomeassist starten. Beim ersten Mal geht das Einstellungsfenster
      von selbst auf. Adresse und Token eintragen, Speichern.
 
-         Adresse      http://homeassistant:8123
-         Abstand (s)  wie oft der Zustand geholt wird
+         Adresse            http://homeassistant:8123
+         Abstand (s)        wie oft der Zustand geholt wird
+         Unbekannte Werte   was mit Geraeten geschieht, die "unknown"
+                            oder "unavailable" melden: anzeigen,
+                            ausgrauen (Voreinstellung) oder ausblenden
 
      Ueber eine langsame Leitung ruhig 15 oder 30 Sekunden nehmen.
 
@@ -285,7 +295,12 @@ DIE DREI FENSTER
                  Nebenschalter und alles Unerreichbare.
 
   Bearbeiten     Seiten anlegen, Gruppen bilden, Geraete hineinnehmen,
-                 Darstellung und Symbol waehlen, umsortieren.
+                 Darstellung und Symbol waehlen, umsortieren. Zum
+                 Umsortieren mit der Maus ziehen: ein Geraet an eine
+                 andere Stelle oder in einen anderen Kasten, einen
+                 ganzen Kasten an seiner Ueberschrift, eine Seite in der
+                 Seitenliste. Hoch und Runter tun dasselbe per Tastatur.
+                 Auf die Platte kommt erst etwas mit Speichern.
 
 
 DARSTELLUNGSARTEN

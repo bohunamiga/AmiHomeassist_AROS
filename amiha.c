@@ -183,6 +183,8 @@ static int prefs_read_file(struct Prefs *p, const char *path)
             p->token[sizeof(p->token) - 1] = '\0';
         } else if (stricmp(line, "poll") == 0) {
             p->poll = atoi(eq + 1);
+        } else if (stricmp(line, "unknown") == 0) {
+            p->unknown = atoi(eq + 1);
         }
     }
     Close(fh);
@@ -196,6 +198,7 @@ int prefs_load(struct Prefs *p)
     memset(p, 0, sizeof(*p));
     p->port = 8123;
     p->poll = 5;
+    p->unknown = AH_UNK_DIM;
 
     sprintf(path, "%s/%s", PREFS_DIR_ENV, PREFS_FILE);
     if (!prefs_read_file(p, path)) {
@@ -214,6 +217,9 @@ int prefs_load(struct Prefs *p)
     }
     if (p->poll <= 0) {
         p->poll = 5;
+    }
+    if (p->unknown < AH_UNK_SHOW || p->unknown > AH_UNK_HIDE) {
+        p->unknown = AH_UNK_DIM;
     }
     return AH_OK;
 }
@@ -240,6 +246,8 @@ static int prefs_write_one(struct Prefs *p, const char *dir)
     FPrintf(fh, "token=%s\n", (LONG)(ULONG)p->token);
     FPrintf(fh, "%s", (LONG)(ULONG)GetStr(MSG_FILE_PREFS_POLL));
     FPrintf(fh, "poll=%ld\n", (LONG)p->poll);
+    FPrintf(fh, "%s", (LONG)(ULONG)GetStr(MSG_FILE_PREFS_UNKNOWN));
+    FPrintf(fh, "unknown=%ld\n", (LONG)p->unknown);
 
     Close(fh);
     return 1;
@@ -905,8 +913,13 @@ int states_refresh(struct Prefs *p, struct Catalog *c)
 
     /* Der Rumpf traegt die IDs als Jinja-Liste. Entity-IDs bestehen nur aus
      * Kleinbuchstaben, Ziffern, Punkt und Unterstrich - da ist nichts zu
-     * maskieren, weder fuer JSON noch fuer Jinja. */
-    cap = 160 + (long)n * (ID_LEN + 4);
+     * maskieren, weder fuer JSON noch fuer Jinja.
+     *
+     * Der feste Teil (Kopf plus Jinja-Schwanz) ist rund 460 Zeichen lang.
+     * Frueher standen hier nur 160: das ging nur gut, weil kurze IDs in
+     * ihren ID_LEN + 4 Platz uebrig liessen. Bei einem bis vier Geraeten
+     * schrieb sprintf hinter den Puffer. */
+    cap = 1024 + (long)n * (ID_LEN + 4);
     body = malloc(cap);
     if (!body) {
         return fail(AH_EMEM, GetStr(MSG_ERR_NOMEM));

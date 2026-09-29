@@ -40,6 +40,7 @@ enum {
     E_PAGENEW, E_PAGEDEL, E_PAGEUP, E_PAGEDOWN,
     E_ROWCLICK, E_GROUPNEW, E_ADD, E_DEL, E_UP, E_DOWN,
     E_RENAME, E_ICON, E_KIND,
+    E_PAGEDRAG, E_ROWDRAG,
     E_SAVE, E_CLOSE,
     E_PICKADD, E_PICKCLOSE
 };
@@ -404,6 +405,163 @@ static void move_widget(int pi, int gi, int wi, int dir)
 
 /* ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ */
+/* Ziehen und Ablegen                                                  */
+/* ------------------------------------------------------------------ */
+
+/* Verschiebt ein Element eines Feldes von 'from' nach 'to' (Zielindex im
+ * fertigen Feld), ohne Speicher anzufordern - ein Tausch auf der Stelle.
+ * Die Zeiger in Gruppen und Seiten wandern mit, nichts wird kopiert. */
+static void array_move(void *base, int size, int from, int to)
+{
+    char tmp[sizeof(struct Page) > sizeof(struct Group) ?
+             (sizeof(struct Page) > sizeof(struct Widget) ?
+              sizeof(struct Page) : sizeof(struct Widget)) :
+             (sizeof(struct Group) > sizeof(struct Widget) ?
+              sizeof(struct Group) : sizeof(struct Widget))];
+    char *b = (char *)base;
+
+    if (from == to) {
+        return;
+    }
+    memcpy(tmp, b + (long)from * size, size);
+    if (from < to) {
+        memmove(b + (long)from * size, b + (long)(from + 1) * size,
+                (size_t)(to - from) * size);
+    } else {
+        memmove(b + (long)(to + 1) * size, b + (long)to * size,
+                (size_t)(from - to) * size);
+    }
+    memcpy(b + (long)to * size, tmp, size);
+}
+
+/* Welche Zeile (alter Index) steht jetzt an Position 'pos' der Liste?
+ * NList speichert unsere Textzeiger unveraendert, daraus folgt der Index. */
+static int row_at(Object *list, LONG pos, char *base, int len, int count)
+{
+    char *p = NULL;
+    long n;
+
+    DoMethod(list, MUIM_NList_GetEntry, pos, &p);
+    if (!p || p < base) {
+        return -1;
+    }
+    n = (long)(p - base) / len;
+    return (n >= 0 && n < count) ? (int)n : -1;
+}
+
+/* Eine Seite wurde in der Seitenliste gezogen. */
+static BOOL drag_pages(void)
+{
+    LONG ins = -1;
+    int from;
+
+    get(g_pages, MUIA_NList_DragSortInsert, &ins);
+    from = row_at(g_pages, ins, g_pagetext, PAGETEXT_LEN, g_d->count);
+    if (from < 0 || ins < 0 || ins >= g_d->count) {
+        fill_pages();                /* Liste wieder mit dem Modell abgleichen */
+        return FALSE;
+    }
+    array_move(g_d->p, sizeof(struct Page), from, (int)ins);
+    fill_pages();
+    set(g_pages, MUIA_NList_Active, ins);
+    fill_rows();
+    return TRUE;
+}
+
+/* Eine Zeile der Inhaltsliste wurde gezogen.
+ *
+ * Die Liste ist flach: Ueberschrift, ihre Geraete, naechste Ueberschrift ...
+ * Ein Geraet gehoert nach dem Ablegen zu der Ueberschrift, die ueber ihm
+ * steht. Eine Ueberschrift nimmt ihren ganzen Kasten mit - sonst wuerde sie
+ * beim Hochziehen die Geraete des Kastens darueber einsammeln, und das
+ * erwartet niemand. */
+static BOOL drag_rows(int *newrow)
+{
+    int pi = cur_page();
+    LONG ins = -1;
+    int from, i, pos;
+    int tg = -1, tpos = 0, heads = 0;
+
+    get(g_rows, MUIA_NList_DragSortInsert, &ins);
+    from = row_at(g_rows, ins, g_rowtext, ROWTEXT_LEN, g_row_count);
+    *newrow = -1;
+    if (pi < 0 || from < 0 || ins < 0 || ins >= g_row_count) {
+        fill_rows();
+        return FALSE;
+    }
+
+    /* Die neue Reihenfolge ist die alte ohne 'from', mit 'from' an 'ins'.
+     * Gezaehlt wird nur, was VOR der Ablegestelle steht. */
+    pos = 0;
+    for (i = 0; i < g_row_count && pos < ins; i++) {
+        if (i == from) {
+            continue;
+        }
+        if (g_row[i].wi < 0) {
+            tg = g_row[i].gi;
+            tpos = 0;
+            heads++;
+        } else {
+            tpos++;
+        }
+        pos++;
+    }
+
+    if (g_row[from].wi < 0) {
+        /* Kasten: er landet hinter so vielen Kaesten, wie Ueberschriften
+         * vor ihm stehen. */
+        int gfrom = g_row[from].gi;
+
+        array_move(g_d->p[pi].g, sizeof(struct Group), gfrom, heads);
+        fill_rows();
+        for (i = 0; i < g_row_count; i++) {
+            if (g_row[i].wi < 0 && g_row[i].gi == heads) {
+                *newrow = i;
+            }
+        }
+        return TRUE;
+    }
+
+    {
+        struct Page *p = &g_d->p[pi];
+        int gfrom = g_row[from].gi;
+        int wfrom = g_row[from].wi;
+
+        if (tg < 0) {
+            /* Ueber die erste Ueberschrift gezogen: in den ersten Kasten,
+             * ganz nach oben. */
+            tg = 0;
+            tpos = 0;
+        }
+        if (tg == gfrom) {
+            /* Innerhalb des Kastens: tpos zaehlt schon ohne das gezogene
+             * Geraet, ist also direkt der Zielindex. */
+            array_move(p->g[gfrom].w, sizeof(struct Widget), wfrom, tpos);
+        } else {
+            struct Widget w = p->g[gfrom].w[wfrom];
+            struct Widget *nw = group_insert_widget(&p->g[tg], tpos, w.kind,
+                                                    w.id, w.label);
+            if (!nw) {
+                fill_rows();
+                return FALSE;
+            }
+            nw->min = w.min;
+            nw->max = w.max;
+            group_widget_remove(&p->g[gfrom], wfrom);
+        }
+        fill_rows();
+        for (i = 0; i < g_row_count; i++) {
+            if (g_row[i].gi == tg && g_row[i].wi == tpos) {
+                *newrow = i;
+            }
+        }
+    }
+    return TRUE;
+}
+
+/* ------------------------------------------------------------------ */
+
 /* Alle Symbole in einer Seitengruppe. Sichtbar ist das gewaehlte - so sieht
  * man beim Blaettern durch die Liste sofort, was man bekommt, ohne dass zur
  * Laufzeit Bilddaten getauscht werden muessten. */
@@ -492,7 +650,11 @@ Object *editor_build(Object *app, struct Dash *d, struct Catalog *c)
                     MUIA_Group_Child, MUI_NewObject(MUIC_NListview,
                         MUIA_NListview_NList, g_pages =
                             MUI_NewObject(MUIC_NList,
-                                MUIA_NList_Input, TRUE, TAG_DONE),
+                                MUIA_NList_Input,          TRUE,
+                                MUIA_NList_DragSortable,   TRUE,
+                                MUIA_NList_DragType,       MUIV_NList_DragType_Immediate,
+                                MUIA_NList_ShowDropMarks,  TRUE,
+                                TAG_DONE),
                         TAG_DONE),
                     MUIA_Group_Child, MUI_NewObject(MUIC_Group,
                         MUIA_Group_Horiz, TRUE,
@@ -516,7 +678,11 @@ Object *editor_build(Object *app, struct Dash *d, struct Catalog *c)
                     MUIA_Group_Child, MUI_NewObject(MUIC_NListview,
                         MUIA_NListview_NList, g_rows =
                             MUI_NewObject(MUIC_NList,
-                                MUIA_NList_Input, TRUE, TAG_DONE),
+                                MUIA_NList_Input,          TRUE,
+                                MUIA_NList_DragSortable,   TRUE,
+                                MUIA_NList_DragType,       MUIV_NList_DragType_Immediate,
+                                MUIA_NList_ShowDropMarks,  TRUE,
+                                TAG_DONE),
                         TAG_DONE),
                     MUIA_Group_Child, MUI_NewObject(MUIC_Group,
                         MUIA_Group_Horiz, TRUE,
@@ -610,6 +776,14 @@ Object *editor_build(Object *app, struct Dash *d, struct Catalog *c)
              app, 2, MUIM_Application_ReturnID, E_PAGECLICK);
     DoMethod(g_rows, MUIM_Notify, MUIA_NList_Active, MUIV_EveryTime,
              app, 2, MUIM_Application_ReturnID, E_ROWCLICK);
+
+    /* Nach dem Ziehen hat NList die Zeile schon umgehaengt - im Modell
+     * aber steht noch alles am alten Platz. Das holen drag_rows() und
+     * drag_pages() nach. */
+    DoMethod(g_pages, MUIM_Notify, MUIA_NList_DragSortInsert, MUIV_EveryTime,
+             app, 2, MUIM_Application_ReturnID, E_PAGEDRAG);
+    DoMethod(g_rows, MUIM_Notify, MUIA_NList_DragSortInsert, MUIV_EveryTime,
+             app, 2, MUIM_Application_ReturnID, E_ROWDRAG);
 
     DoMethod(b_pnew, MUIM_Notify, MUIA_Pressed, FALSE,
              app, 2, MUIM_Application_ReturnID, E_PAGENEW);
@@ -818,6 +992,26 @@ BOOL editor_handle(ULONG id, BOOL *changed)
                     w->max = w->min + 100;
                 }
                 fill_rows();
+                *changed = TRUE;
+            }
+            break;
+        }
+
+        case E_PAGEDRAG:
+            if (drag_pages()) {
+                show_selection();
+                *changed = TRUE;
+            }
+            break;
+
+        case E_ROWDRAG: {
+            int nr = -1;
+
+            if (drag_rows(&nr)) {
+                if (nr >= 0) {
+                    set(g_rows, MUIA_NList_Active, (LONG)nr);
+                }
+                show_selection();
                 *changed = TRUE;
             }
             break;

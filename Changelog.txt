@@ -1,6 +1,42 @@
 AmiHomeassist - was sich geaendert hat
 =====================================
 
+0.8   29.09.2026
+
+  Aufgeraeumte Seiten. Die Beschriftungen stehen rechtsbuendig mit
+  Doppelpunkt vor ihrem Wert, wie in einem MUI-Formular, und fluchten
+  ueber alle Kaesten einer Seite. Alle Bedienknoepfe - Auf, Stop, Zu,
+  kaelter, waermer, Betriebsart - sind gleich breit und stehen in
+  Spalten; der Knopf der Betriebsart springt nicht mehr, wenn er von
+  "auto" auf "Heizen" wechselt. Auch das Einstellungsfenster hat jetzt
+  Doppelpunkte. Unter dem Logo steht klein die Versionsnummer.
+
+  Unbekannte Werte. Liefert ein Geraet "unknown", "unavailable" oder
+  nichts, laesst sich einstellen, was damit geschieht: anzeigen,
+  ausgrauen (Voreinstellung) oder ausblenden. Ausgeblendet verschwindet
+  die Zeile, und ist ein Kasten dann leer, verschwindet er mit. Meldet
+  sich das Geraet zurueck, erscheint es wieder von selbst.
+
+  Ein Fenster- oder Tuersensor ohne Verbindung stand bisher als "zu" da.
+  Jetzt steht dort, was Home Assistant meldet.
+
+  Ziehen und Ablegen im Editor. Geraete lassen sich mit der Maus an eine
+  andere Stelle oder in einen anderen Kasten ziehen, ganze Kaesten ueber
+  ihre Ueberschrift, Seiten in der Seitenliste. Die Knoepfe Hoch und
+  Runter bleiben fuer die Tastatur.
+
+  Absturz auf echten 68030 behoben. Ohne Stack-Eintrag im Icon gibt die
+  Workbench einem Programm nur 4 KB, und das war fuer MUI zu wenig. Auf
+  einem A500 mit TF536 kam es zu Guru 8000 0003 und 0100 000F. Das
+  Programm stellt sich seinen Stapel jetzt selbst, gleich wie es
+  gestartet wird.
+
+  Bei nur einem bis vier uebernommenen Geraeten schrieb die Abfrage im
+  Takt ueber das Ende eines Puffers hinaus. Behoben.
+
+  Die Zahl im Balken verschwand nach dem ersten Seitenwechsel. Behoben.
+
+
 0.7   08.09.2026
 
   Zeitgrenzen am Netz. Antwortet Home Assistant nicht, stand bisher das

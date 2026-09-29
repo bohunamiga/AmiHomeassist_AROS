@@ -5,7 +5,7 @@ Lights, sockets, blinds, climate and sensors arranged on dashboards of your
 own, with a MUI interface: dashboards in a sidebar on the left, the chosen
 page on the right.
 
-![AmiHomeassist on Workbench 3.2](docs/screenshot.png)
+![AmiHomeassist 0.8 on an A500 with a TF536 68030, Workbench 3.2](docs/screenshot.png)
 
 - AmigaOS 2.0+, 68020 or better, no FPU needed
 - MUI 3.8+ with NList.mcc / NListview.mcc
@@ -46,8 +46,9 @@ in a `Source` drawer. In this repository they are at the top level.
 
 ## History
 
-This repository was created after the fact from the released Aminet
-archives; each release is one commit, tagged `v0.5`, `v0.6`, `v0.7`.
+Up to 0.7 this repository was created after the fact from the released
+Aminet archives; each of those releases is one commit, tagged `v0.5`,
+`v0.6`, `v0.7`. From 0.8 on, releases are made here first (`v0.8`).
 0.5 was still built with SAS/C on the Amiga (`mk`), from 0.6 on it is
 cross-compiled.
 

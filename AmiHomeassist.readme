@@ -1,9 +1,9 @@
-Short:        Home Assistant dashboards for MUI, now with thermostats
-Kurz:         Home Assistant auf dem Amiga, mit MUI, jetzt auch Heizungen
+Short:        Home Assistant dashboards for MUI, drag&drop
+Kurz:         Home Assistant auf dem Amiga, Drag & Drop
 Author:       radi777
 Uploader:     thomas.radeck gmail com (radi777, see note below)
 Type:         comm/tcp
-Version:      0.7
+Version:      0.8
 Architecture: m68k-amigaos
 Requires:     dev/mui/MCC_NList-0.128.lha
 Distribution: Aminet
@@ -23,29 +23,36 @@ easily has 900 entities and you want a dozen or two. So there is a
 picker with a suggestion you can overrule, and an editor where pages,
 groups and devices are put together freely.
 
-NEW IN 0.7
+NEW IN 0.8
 
-Heating. The climate domain is fetched too, with a widget of its own:
-current and target temperature on one line, then three buttons - colder,
-warmer, operating mode. The steps are the ones your thermostat allows,
-half a degree on some, a whole one on others. Temperatures are handled
-as whole tenths of a degree, so this still runs without an FPU.
+Tidier pages. Labels now sit right-aligned with a colon in front of
+their value, the way MUI forms look, and they line up across all groups
+of a page. All control buttons - up, stop, down, colder, warmer, mode -
+have the same width and stand in columns; the mode button no longer
+jumps when it changes from "auto" to "heat". The settings window has
+colons too, and the version number sits small under the logo.
 
-Timeouts on the wire. Until 0.6 the whole program stood still when Home
-Assistant did not answer, until the TCP stack gave up - measured at 76
-seconds per attempt, with no window, no menu, no Ctrl-C. Now connecting
-gives up after five seconds, sending and receiving after fifteen, and
-after the second failure in a row it only knocks every thirty seconds
-until the machine answers again. Measured: 5.3 seconds instead of 76.
+Unknown values. When a device reports "unknown", "unavailable" or
+nothing at all, you choose what happens: show it, grey it out (the
+default) or hide it. A hidden row disappears, and a group left empty
+disappears with it. When the device comes back, so does the row.
 
-If the settings hold a numeric address instead of a name, the name
-lookup is skipped entirely - it is the one wait that cannot be bounded.
+A window or door sensor that had lost its connection used to show as
+"closed". It now shows what Home Assistant reports.
 
-Two places still said "auf"/"zu" and "an"/"aus" in German from the
-source, even in an English program. Fixed.
+Drag and drop in the editor. Drag a device to another place or into
+another group, a whole group by its heading, a page in the page list.
+Up and Down still work from the keyboard.
 
-The state query no longer makes Home Assistant write warnings into its
-log. It used to produce thousands of them a day in a large setup.
+Crash on real 68030 machines fixed. Without a stack entry in the icon,
+Workbench gives a program only 4 KB, which is too little for MUI. On an
+A500 with a TF536 this ended in Guru 8000 0003 and 0100 000F. The
+program now sets up its own stack, however it is started.
+
+With only one to four devices adopted, the regular state query wrote
+past the end of a buffer. Fixed.
+
+The number inside a bar disappeared after the first page change. Fixed.
 
 WIDGET KINDS
 
@@ -126,32 +133,38 @@ willst du ein bis zwei Dutzend. Also gibt es eine Auswahl mit einem
 Vorschlag zum Ueberstimmen und einen Editor, in dem Seiten, Gruppen und
 Geraete frei zusammengestellt werden.
 
-NEU IN 0.7
+NEU IN 0.8
 
-Heizungen. Die Domain climate kommt dazu, mit einer eigenen
-Darstellungsart: Ist- und Solltemperatur in einer Zeile, darunter drei
-Knoepfe - kaelter, waermer, Betriebsart. Gezaehlt wird in der
-Schrittweite des Geraets, beim einen ein halbes Grad, beim anderen ein
-ganzes. Temperaturen sind ganze Zehntelgrad, damit das Ganze weiter
-ohne FPU auskommt.
+Aufgeraeumte Seiten. Die Beschriftungen stehen rechtsbuendig mit
+Doppelpunkt vor ihrem Wert, wie in einem MUI-Formular, und fluchten
+ueber alle Kaesten einer Seite. Alle Bedienknoepfe - Auf, Stop, Zu,
+kaelter, waermer, Betriebsart - sind gleich breit und stehen in
+Spalten; der Knopf der Betriebsart springt nicht mehr, wenn er von
+"auto" auf "Heizen" wechselt. Auch das Einstellungsfenster hat
+Doppelpunkte, und unter dem Logo steht klein die Versionsnummer.
 
-Zeitgrenzen am Netz. Antwortet Home Assistant nicht, stand bis 0.6 das
-ganze Programm still, bis der TCP-Stack aufgab - gemessen 76 Sekunden
-je Versuch, ohne Fenster, ohne Menue, ohne Ctrl-C. Jetzt bricht der
-Verbindungsaufbau nach fuenf Sekunden ab, Senden und Empfangen nach
-fuenfzehn, und nach dem zweiten Fehlschlag in Folge wird nur noch alle
-dreissig Sekunden angeklopft, bis der Rechner wieder antwortet.
-Gemessen: 5,3 Sekunden statt 76.
+Unbekannte Werte. Meldet ein Geraet "unknown", "unavailable" oder gar
+nichts, laesst sich waehlen, was geschieht: anzeigen, ausgrauen
+(Voreinstellung) oder ausblenden. Eine ausgeblendete Zeile
+verschwindet, und ein Kasten, der dadurch leer wird, gleich mit.
+Meldet sich das Geraet zurueck, ist auch die Zeile wieder da.
 
-Steht in den Einstellungen eine Zahlenadresse statt eines Namens,
-entfaellt die Namensaufloesung ganz - sie ist die einzige Wartestelle,
-die sich nicht begrenzen laesst.
+Ein Fenster- oder Tuersensor ohne Verbindung stand bisher als "zu" da.
+Jetzt steht dort, was Home Assistant meldet.
 
-Zwei Stellen waren fest deutsch, auch in einem englischen Programm:
-die Rollladenzustaende und die Ausgabe der Shell-Fassung. Behoben.
+Ziehen und Ablegen im Editor. Geraete an eine andere Stelle oder in
+einen anderen Kasten ziehen, ganze Kaesten an ihrer Ueberschrift,
+Seiten in der Seitenliste. Hoch und Runter gehen weiter per Tastatur.
 
-Die Zustandsabfrage laesst Home Assistant keine Protokollwarnungen mehr
-schreiben. In einer grossen Anlage kamen so tausende am Tag zusammen.
+Absturz auf echten 68030 behoben. Ohne Stack-Eintrag im Icon gibt die
+Workbench einem Programm nur 4 KB, zu wenig fuer MUI. Auf einem A500
+mit TF536 endete das in Guru 8000 0003 und 0100 000F. Das Programm
+stellt sich seinen Stapel jetzt selbst, gleich wie es gestartet wird.
+
+Bei nur einem bis vier uebernommenen Geraeten schrieb die Abfrage im
+Takt ueber das Ende eines Puffers hinaus. Behoben.
+
+Die Zahl im Balken verschwand nach dem ersten Seitenwechsel. Behoben.
 
 DARSTELLUNGSARTEN
 

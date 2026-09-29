@@ -22,7 +22,7 @@
 /* siehe amiha.c: netinclude verdeckt SAS/Cs proto/dos.h */
 extern struct DosLibrary *DOSBase;
 
-const char *VERSTAG = "$VER: AmiHomeassist 0.7 (1.9.2026)";
+const char *VERSTAG = "$VER: AmiHomeassist " AH_VERSION " (" AH_DATE ")";
 
 #define TEMPLATE "ALL/S,DOMAIN/K,ON/K,OFF/K,TOGGLE/K,STATES/S,DASH/S,HOST/K,TOKEN/K,SAVE/S"
 
@@ -209,6 +209,13 @@ static void do_service(struct Prefs *p, const char *entity, const char *service,
         printf(GetStr(MSG_CLI_ERROR), ha_last_error());
     }
 }
+
+/* Die Shell gibt meist nur 4 KB - siehe gui.c. */
+unsigned long __stack = 32768;
+
+/* Zieht den Umschaltcode herein - siehe gui.c. */
+extern void __stkinit(void);
+void (*const ah_force_stkswap)(void) = __stkinit;
 
 int main(void)
 {

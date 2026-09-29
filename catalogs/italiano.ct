@@ -323,3 +323,13 @@ MSG_HVAC_FAN
 ventola
 MSG_HVAC_HEATCOOL
 caldo/freddo
+MSG_LBL_UNKNOWN
+Valori _sconosciuti
+MSG_UNK_SHOW
+mostra
+MSG_UNK_DIM
+in grigio
+MSG_UNK_HIDE
+nascondi
+MSG_FILE_PREFS_UNKNOWN
+\n; Valori sconosciuti o non disponibili: 0 mostra, 1 in grigio, 2 nascondi\n
