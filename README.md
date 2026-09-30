@@ -23,8 +23,10 @@ class of its own:
 [comm/tcp/AmiHomeassist-0.6](https://aminet.net/package/comm/tcp/AmiHomeassist-0.6)
 and under [Releases](../../releases).
 
-The full user documentation (English and German) is in
-[README.txt](README.txt), the version history in
+The full user documentation is the AmigaGuide manual
+[guide/AmiHomeassist.guide](guide/AmiHomeassist.guide) (English and
+German, with screenshots in `guide/Pics/`); a shorter text version is
+[README.txt](README.txt), the version history
 [Changelog.txt](Changelog.txt).
 
 ## Building
@@ -54,7 +56,7 @@ in a `Source` drawer. In this repository they are at the top level.
 
 Up to 0.7 this repository was created after the fact from the released
 Aminet archives; each of those releases is one commit, tagged `v0.5`,
-`v0.6`, `v0.7`. From 0.8 on, releases are made here first (`v0.8`, `v0.9`).
+`v0.6`, `v0.7`. From 0.8 on, releases are made here first (`v0.8`, `v0.9`, `v0.9.1`).
 0.5 was still built with SAS/C on the Amiga (`mk`), from 0.6 on it is
 cross-compiled.
 

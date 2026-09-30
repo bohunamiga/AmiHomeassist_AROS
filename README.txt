@@ -1,8 +1,9 @@
-AmiHomeassist 0.9
-=================
+AmiHomeassist 0.9.1
+===================
 
   English below, deutsche Fassung weiter unten.
-  Deutsche Fassung ab "AmiHomeassist 0.9 - Deutsch".
+  Deutsche Fassung ab "AmiHomeassist 0.9.1 - Deutsch".
+  The full manual with pictures is AmiHomeassist.guide.
 
 
 ENGLISH
@@ -66,7 +67,10 @@ THE THREE WINDOWS
 
   Device list   the main window with the sidebar
 
-  Select        which devices the program knows at all. "Suggest"
+  Select        which devices the program knows at all. A search
+                field narrows the list; All, None and Suggest act on
+                what is shown. Apply adds and removes devices on your
+                pages and keeps your arrangement. "Suggest"
                 hides the usual ballast: the per-device
                 internet-access switches of a Fritzbox, the Dnd lamps
                 of smart sockets, technical helper switches and
@@ -142,6 +146,7 @@ FILES
   ENVARC:AmiHomeassist/Dashboards.prefs      the pages
 
   All three are plain text and can be repaired by hand if need be.
+  Before each save the old file is kept as .bak.
 
   The token is stored in the clear and grants full access to your Home
   Assistant. On your own network that is acceptable, but you should
@@ -232,8 +237,10 @@ BUILDING IT YOURSELF
 
 ================================================================
 
-AmiHomeassist 0.9 - Deutsch
-===========================
+AmiHomeassist 0.9.1 - Deutsch
+=============================
+
+  Die ausfuehrliche Anleitung mit Bildern ist AmiHomeassist.guide.
 
 Home Assistant vom Amiga aus: Lampen, Steckdosen, Rollaeden und
 Sensoren nach eigenen Dashboards geordnet, mit MUI-Oberflaeche.
@@ -297,7 +304,11 @@ DIE DREI FENSTER
 
   Geraeteliste   das Hauptfenster mit der Seitenleiste
 
-  Auswahl        welche Geraete das Programm ueberhaupt kennt.
+  Auswahl        welche Geraete das Programm ueberhaupt kennt. Ein
+                 Suchfeld grenzt die Liste ein; Alle, Keine und
+                 Vorschlag wirken auf das Angezeigte. Uebernehmen
+                 ergaenzt und entfernt Geraete auf deinen Seiten und
+                 laesst deine Anordnung stehen.
                  "Vorschlag" blendet den ueblichen Ballast aus: die
                  Internet-access-Schalter einer Fritzbox, die
                  Dnd-Laempchen von Steckdosen, technische
@@ -379,6 +390,7 @@ DATEIEN
   ENVARC:AmiHomeassist/Dashboards.prefs      die Seiten
 
   Alle drei sind Text und notfalls von Hand zu reparieren.
+  Vor jedem Speichern bleibt die alte Datei als .bak liegen.
 
   Der Token steht im Klartext und gilt uneingeschraenkt fuer deine
   Home-Assistant-Installation. Im eigenen Netz ist das vertretbar, aber

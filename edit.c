@@ -42,7 +42,7 @@ enum {
     E_RENAME, E_ICON, E_KIND,
     E_PAGEDRAG, E_ROWDRAG,
     E_SAVE, E_CLOSE,
-    E_PICKADD, E_PICKCLOSE
+    E_PICKADD, E_PICKCLOSE, E_PICKFIND
 };
 
 static struct Dash    *g_d;
@@ -50,7 +50,7 @@ static struct Catalog *g_c;
 
 static Object *g_win, *g_pages, *g_rows, *g_name, *g_icon, *g_kind;
 static Object *g_iconview;
-static Object *g_pick_win, *g_pick_list;
+static Object *g_pick_win, *g_pick_list, *g_pick_find;
 
 /* Eine Zeile der Inhaltsliste zeigt entweder eine Gruppe (wi < 0) oder ein
  * Widget darin. Das Feld wird bei jedem Fuellen neu aufgebaut. */
@@ -298,6 +298,7 @@ static void show_selection(void)
 static void fill_picker(void)
 {
     int i, n = 0;
+    char *find = NULL;
 
     if (g_c->count > g_picktext_cap) {
         if (g_picktext) {
@@ -314,10 +315,25 @@ static void fill_picker(void)
         }
     }
 
+    get(g_pick_find, MUIA_String_Contents, &find);
+    if (!find) {
+        find = "";
+    }
+
     set(g_pick_list, MUIA_NList_Quiet, TRUE);
     DoMethod(g_pick_list, MUIM_NList_Clear);
     for (i = 0; i < g_c->count; i++) {
-        if (entity_is_noise(&g_c->list[i])) {
+        const struct Entity *e = &g_c->list[i];
+
+        /* Ohne Suchbegriff bleibt der Ballast draussen (Fritzbox-Schalter,
+         * Unerreichbares). Wer sucht, sucht gezielt - dann alles zeigen,
+         * worauf der Begriff passt: Raum, Name oder Entity-ID. */
+        if (*find) {
+            if (!text_contains(e->name, find) && !text_contains(e->area, find) &&
+                    !text_contains(e->id, find)) {
+                continue;
+            }
+        } else if (entity_is_noise(e)) {
             continue;
         }
         g_pickmap[n] = i;
@@ -633,6 +649,15 @@ static Object *icon_preview(void)
     return grp;
 }
 
+/* "Suche:" - rechtsbuendig mit Doppelpunkt wie alle Beschriftungen. */
+static Object *find_label(void)
+{
+    char buf[48];
+
+    sprintf(buf, "%.44s:", GetStr(MSG_ED_LBL_FIND));
+    return MUI_MakeObject(MUIO_Label, buf, 0);
+}
+
 Object *editor_build(Object *app, struct Dash *d, struct Catalog *c)
 {
     Object *b_pnew, *b_pdel, *b_pup, *b_pdown;
@@ -760,9 +785,19 @@ Object *editor_build(Object *app, struct Dash *d, struct Catalog *c)
         MUIA_Window_Width,  MUIV_Window_Width_Visible(40),
         MUIA_Window_Height, MUIV_Window_Height_Visible(60),
         MUIA_Window_RootObject, MUI_NewObject(MUIC_Group,
+            MUIA_Group_Child, MUI_NewObject(MUIC_Group,
+                MUIA_Group_Horiz, TRUE,
+                MUIA_Group_Child, find_label(),
+                MUIA_Group_Child, g_pick_find = MUI_NewObject(MUIC_String,
+                    MUIA_String_MaxLen, 40,
+                    MUIA_Frame,         MUIV_Frame_String,
+                    MUIA_CycleChain,    1,
+                    TAG_DONE),
+                TAG_DONE),
             MUIA_Group_Child, MUI_NewObject(MUIC_NListview,
                 MUIA_NListview_NList, g_pick_list = MUI_NewObject(MUIC_NList,
                     MUIA_NList_Input, TRUE, TAG_DONE),
+                MUIA_CycleChain, 1,
                 TAG_DONE),
             MUIA_Group_Child, MUI_NewObject(MUIC_Group,
                 MUIA_Group_Horiz, TRUE,
@@ -777,6 +812,8 @@ Object *editor_build(Object *app, struct Dash *d, struct Catalog *c)
     if (!g_win || !g_pick_win) {
         return NULL;
     }
+    /* Beim Oeffnen gleich ins Suchfeld tippen koennen. */
+    set(g_pick_win, MUIA_Window_ActiveObject, g_pick_find);
 
     DoMethod(app, OM_ADDMEMBER, g_win);
     DoMethod(app, OM_ADDMEMBER, g_pick_win);
@@ -838,6 +875,11 @@ Object *editor_build(Object *app, struct Dash *d, struct Catalog *c)
              app, 2, MUIM_Application_ReturnID, E_CLOSE);
     DoMethod(b_padd, MUIM_Notify, MUIA_Pressed, FALSE,
              app, 2, MUIM_Application_ReturnID, E_PICKADD);
+    /* Doppelklick fuegt hinzu wie der Knopf; jede Eingabe filtert neu. */
+    DoMethod(g_pick_list, MUIM_Notify, MUIA_NList_DoubleClick, MUIV_EveryTime,
+             app, 2, MUIM_Application_ReturnID, E_PICKADD);
+    DoMethod(g_pick_find, MUIM_Notify, MUIA_String_Contents, MUIV_EveryTime,
+             app, 2, MUIM_Application_ReturnID, E_PICKFIND);
     DoMethod(b_pclose, MUIM_Notify, MUIA_Pressed, FALSE,
              app, 2, MUIM_Application_ReturnID, E_PICKCLOSE);
 
@@ -897,7 +939,14 @@ BOOL editor_handle(ULONG id, BOOL *changed)
             if (pi >= 0) {
                 dash_page_remove(g_d, pi);
                 fill_pages();
+                /* Auf die Nachbarseite, nicht ins Leere - sonst stuende im
+                 * Namensfeld noch die geloeschte Seite. */
+                if (g_d->count) {
+                    set(g_pages, MUIA_NList_Active,
+                        (LONG)(pi < g_d->count ? pi : g_d->count - 1));
+                }
                 fill_rows();
+                show_selection();
                 *changed = TRUE;
             }
             break;
@@ -922,6 +971,10 @@ BOOL editor_handle(ULONG id, BOOL *changed)
             break;
 
         case E_ADD:
+            /* Leeres Suchfeld beim Oeffnen - ohne Benachrichtigung, sonst
+             * wuerde die Liste gleich zweimal gefuellt. */
+            SetAttrs(g_pick_find, MUIA_NoNotify, TRUE,
+                     MUIA_String_Contents, (ULONG)"", TAG_DONE);
             fill_picker();
             set(g_pick_win, MUIA_Window_Open, TRUE);
             break;
@@ -930,6 +983,10 @@ BOOL editor_handle(ULONG id, BOOL *changed)
             if (picker_add()) {
                 *changed = TRUE;
             }
+            break;
+
+        case E_PICKFIND:
+            fill_picker();
             break;
 
         case E_PICKCLOSE:
@@ -1081,4 +1138,30 @@ int editor_page(void)
     }
     get(g_win, MUIA_Window_Open, &open);
     return open ? cur_page() : -1;
+}
+
+/* Das Hauptfenster hat die Dashboards veraendert (Uebernehmen in der
+ * Geraeteauswahl, Aktualisieren). Ist der Editor offen, muessen seine
+ * Listen neu entstehen - sonst zeigen sie auf Seiten, Kaesten und Zeilen,
+ * die es so nicht mehr gibt, und der naechste Klick greift ins Leere. */
+void editor_refresh(int page)
+{
+    LONG open = FALSE;
+
+    if (!g_win) {
+        return;
+    }
+    get(g_win, MUIA_Window_Open, &open);
+    if (!open) {
+        return;
+    }
+    fill_pages();
+    if (g_d->count) {
+        if (page < 0 || page >= g_d->count) {
+            page = 0;
+        }
+        set(g_pages, MUIA_NList_Active, (LONG)page);
+    }
+    fill_rows();
+    show_selection();
 }

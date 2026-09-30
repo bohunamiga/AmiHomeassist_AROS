@@ -59,6 +59,23 @@ static int fail(int code, const char *msg)
 /* Zeichensatz                                                         */
 /* ------------------------------------------------------------------ */
 
+/* Latin Extended-A (U+0100..U+017F): Polnisch, Tschechisch, Ungarisch,
+ * Tuerkisch ... Latin-1 hat diese Buchstaben nicht - "zl" liest sich
+ * besser als "z?". Jeder Eintrag ist der Grundbuchstabe, erzeugt aus der
+ * Unicode-Zerlegung (NFKD), fuer die paar ohne Zerlegung von Hand (L mit
+ * Strich -> L, OE-Ligatur -> OE). Hoechstens zwei Zeichen: das Original
+ * belegt in UTF-8 zwei Bytes, der Ersatz passt also an Ort und Stelle. */
+static const char *const LATIN_EXT_A[128] = {
+    "A", "a", "A", "a", "A", "a", "C", "c", "C", "c", "C", "c", "C", "c", "D", "d",
+    "D", "d", "E", "e", "E", "e", "E", "e", "E", "e", "E", "e", "G", "g", "G", "g",
+    "G", "g", "G", "g", "H", "h", "H", "h", "I", "i", "I", "i", "I", "i", "I", "i",
+    "I", "i", "IJ", "ij", "J", "j", "K", "k", "k", "L", "l", "L", "l", "L", "l", "L",
+    "l", "L", "l", "N", "n", "N", "n", "N", "n", "n", "N", "n", "O", "o", "O", "o",
+    "O", "o", "OE", "oe", "R", "r", "R", "r", "R", "r", "S", "s", "S", "s", "S", "s",
+    "S", "s", "T", "t", "T", "t", "T", "t", "U", "u", "U", "u", "U", "u", "U", "u",
+    "U", "u", "U", "u", "W", "w", "Y", "y", "Y", "Z", "z", "Z", "z", "Z", "z", "s"
+};
+
 void utf8_to_latin1(char *s)
 {
     unsigned char *r = (unsigned char *)s;
@@ -69,13 +86,66 @@ void utf8_to_latin1(char *s)
             *w++ = *r++;
         } else if ((*r & 0xE0) == 0xC0 && (r[1] & 0xC0) == 0x80) {
             unsigned int c = ((unsigned int)(*r & 0x1F) << 6) | (r[1] & 0x3F);
-            *w++ = (c < 256) ? (unsigned char)c : '?';
+
+            if (c < 256) {
+                *w++ = (unsigned char)c;
+            } else if (c < 0x180) {
+                const char *rep = LATIN_EXT_A[c - 0x100];
+
+                while (*rep) {
+                    *w++ = (unsigned char)*rep++;
+                }
+            } else {
+                *w++ = '?';
+            }
             r += 2;
         } else if ((*r & 0xF0) == 0xE0 && (r[1] & 0xC0) == 0x80 &&
                    (r[2] & 0xC0) == 0x80) {
-            /* Drei Byte lange Zeichen haben in Latin-1 keine Entsprechung. */
-            *w++ = '?';
+            /* Drei Byte lange Zeichen gibt es in Latin-1 nicht. Die in Home
+             * Assistant haeufigen bekommen einen Ersatz: Waehrungszeichen
+             * ihren ISO-4217-Code (der Anwender kann jede Waehrung
+             * eingestellt haben), Satzzeichen ihr ASCII-Gegenstueck. Der
+             * Ersatz ist hoechstens drei Zeichen lang und passt an Ort und
+             * Stelle. */
+            unsigned int c = ((unsigned int)(*r & 0x0F) << 12) |
+                             ((unsigned int)(r[1] & 0x3F) << 6) | (r[2] & 0x3F);
+            const char *rep = "?";
+
+            switch (c) {
+                case 0x0E3F: rep = "THB"; break;   /* Thai Currency Symbol Baht */
+                case 0x20A1: rep = "CRC"; break;   /* Colon */
+                case 0x20A6: rep = "NGN"; break;   /* Naira */
+                case 0x20A9: rep = "KRW"; break;   /* Won */
+                case 0x20AA: rep = "ILS"; break;   /* New Sheqel */
+                case 0x20AB: rep = "VND"; break;   /* Dong */
+                case 0x20AC: rep = "EUR"; break;   /* Euro */
+                case 0x20AD: rep = "LAK"; break;   /* Kip */
+                case 0x20AE: rep = "MNT"; break;   /* Tugrik */
+                case 0x20B1: rep = "PHP"; break;   /* Peso */
+                case 0x20B2: rep = "PYG"; break;   /* Guarani */
+                case 0x20B4: rep = "UAH"; break;   /* Hryvnia */
+                case 0x20B5: rep = "GHS"; break;   /* Cedi */
+                case 0x20B8: rep = "KZT"; break;   /* Tenge */
+                case 0x20B9: rep = "INR"; break;   /* Indian Rupee */
+                case 0x20BA: rep = "TRY"; break;   /* Turkish Lira */
+                case 0x20BC: rep = "AZN"; break;   /* Manat */
+                case 0x20BD: rep = "RUB"; break;   /* Ruble */
+                case 0x20BE: rep = "GEL"; break;   /* Lari */
+                case 0x20BF: rep = "BTC"; break;   /* Bitcoin */
+                case 0x2013: case 0x2014: rep = "-"; break; /* Striche */
+                case 0x2018: case 0x2019: case 0x201A: rep = "'"; break;
+                case 0x201C: case 0x201D: case 0x201E: rep = "\""; break;
+                case 0x2026: rep = "..."; break;
+                case 0x2022: rep = "*"; break;
+            }
+            while (*rep) {
+                *w++ = (unsigned char)*rep++;
+            }
             r += 3;
+        } else if ((*r & 0xF8) == 0xF0 && (r[1] & 0xC0) == 0x80 &&
+                   (r[2] & 0xC0) == 0x80 && (r[3] & 0xC0) == 0x80) {
+            *w++ = '?';             /* Emoji & Co.: ein Zeichen, ein ? */
+            r += 4;
         } else {
             *w++ = '?';
             r++;
@@ -380,6 +450,7 @@ int import_save(struct Catalog *c)
     }
 
     sprintf(path, "%s/%s", PREFS_DIR_ARC, IMPORT_FILE);
+    file_backup(path);
     fh = Open((STRPTR)path, MODE_NEWFILE);
     if (!fh) {
         return fail(AH_ENOPREFS, GetStr(MSG_ERR_IMPORTWRITE));
@@ -873,6 +944,7 @@ int catalog_fetch(struct Prefs *p, struct Catalog *c)
             utf8_to_latin1(e->name);
             utf8_to_latin1(e->area);
             utf8_to_latin1(e->unit);
+            utf8_to_latin1(e->state);
 
             if (e->area[0] == '\0' ||
                 (e->area[0] == '-' && e->area[1] == '\0')) {
@@ -971,6 +1043,7 @@ int states_refresh(struct Prefs *p, struct Catalog *c)
                     if (e) {
                         copy_field(e->state, STATE_LEN, f3[1],
                                    (int)strlen(f3[1]));
+                        utf8_to_latin1(e->state);
                         if (nf >= 3) {
                             char tmp[16];
 
@@ -1711,4 +1784,50 @@ done:
     CloseLibrary(SocketBase);
     SocketBase = NULL;
     return rc;
+}
+
+/* ------------------------------------------------------------------ */
+/* Kleinkram fuer Suche und Sicherung                                  */
+/* ------------------------------------------------------------------ */
+
+static int lower1(int c)
+{
+    c &= 0xff;
+    if ((c >= 'A' && c <= 'Z') || (c >= 0xc0 && c <= 0xde && c != 0xd7)) {
+        return c + 0x20;
+    }
+    return c;
+}
+
+BOOL text_contains(const char *hay, const char *needle)
+{
+    int i, j;
+
+    if (!needle || !*needle) {
+        return TRUE;
+    }
+    for (i = 0; hay[i]; i++) {
+        for (j = 0; needle[j] && hay[i + j] &&
+                    lower1(hay[i + j]) == lower1(needle[j]); j++) {
+            ;
+        }
+        if (!needle[j]) {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+void file_backup(const char *path)
+{
+    char bak[300];
+    BPTR lock = Lock((STRPTR)path, ACCESS_READ);
+
+    if (!lock) {
+        return;                     /* nichts da, nichts zu sichern */
+    }
+    UnLock(lock);
+    sprintf(bak, "%.290s.bak", path);
+    DeleteFile((STRPTR)bak);
+    Rename((STRPTR)path, (STRPTR)bak);
 }

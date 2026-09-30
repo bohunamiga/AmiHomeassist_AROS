@@ -347,3 +347,11 @@ MSG_CHART_EMPTY
 Sin datos
 MSG_KIND_CHART_MONTH
 Historial (meses)
+MSG_ED_LBL_FIND
+_Buscar
+MSG_ASK_MANY
+Has seleccionado %ld dispositivos.\nMás de unos 100 hacen el Amiga muy lento.\n\n¿Aplicar de todos modos?
+MSG_ASK_MANY_BT
+_Aplicar|_Cancelar
+MSG_STATUS_MERGED
+%ld añadidos, %ld quitados - tus páginas se mantienen

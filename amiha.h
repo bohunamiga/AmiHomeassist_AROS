@@ -30,7 +30,7 @@
  * geratener Wert sondern gemessen plus Reserve. */
 /* Die Versionsnummer an genau einer Stelle: $VER in beiden Programmen und
  * die kleine Zeile unter dem Logo kommen von hier. */
-#define AH_VERSION "0.9"
+#define AH_VERSION "0.9.1"
 #define AH_DATE    "30.9.2026"
 
 #define ID_LEN     96
@@ -155,6 +155,15 @@ void catalog_sort(struct Catalog *c);
 
 /* Die Domain einer Entity-ID, also der Teil vor dem Punkt. */
 void entity_domain(const char *id, char *out, int outsize);
+
+/* Kommt 'needle' in 'hay' vor? Ohne Ruecksicht auf Gross/klein, auch bei
+ * Latin-1-Umlauten. Leerer Suchbegriff passt immer. */
+BOOL text_contains(const char *hay, const char *needle);
+
+/* Benennt eine vorhandene Datei in <name>.bak um, bevor sie neu
+ * geschrieben wird - eine Generation Sicherung, ohne dass jemand daran
+ * denken muss. */
+void file_backup(const char *path);
 
 /* Langzeitstatistik aus Home Assistant - die Balken "Verbrauch je Tag/Monat".
  * Die gibt es nur ueber die WebSocket-Schnittstelle (recorder/

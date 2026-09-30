@@ -1,9 +1,9 @@
-Short:        Home Assistant dashboards for MUI, charts
-Kurz:         Home Assistant auf dem Amiga, Verlaeufe
+Short:        Home Assistant dashboards for MUI, with guide
+Kurz:         Home Assistant auf dem Amiga, mit Anleitung
 Author:       radi777
 Uploader:     thomas.radeck gmail com (radi777, see note below)
 Type:         comm/tcp
-Version:      0.9
+Version:      0.9.1
 Architecture: m68k-amigaos
 Requires:     dev/mui/MCC_NList-0.128.lha
 Distribution: Aminet
@@ -22,6 +22,20 @@ You decide what appears and how it looks. A large Home Assistant setup
 easily has 900 entities and you want a dozen or two. So there is a
 picker with a suggestion you can overrule, and an editor where pages,
 groups and devices are put together freely.
+
+NEW IN 0.9.1
+
+A manual: AmiHomeassist.guide, English and German in one file, with
+screenshots in the Pics drawer.
+
+Search in both device lists. All, None and Suggest act only on what the
+list shows. Apply no longer rebuilds your pages - newly chosen devices
+go onto the page of their room, unchosen ones go, everything else stays
+as you arranged it. It asks before more than 100 devices, and every save
+keeps the previous file as .bak.
+
+Crash when removing a page fixed. Currencies Latin-1 lacks now show as
+their ISO code (EUR, INR, RUB ...) instead of "?".
 
 NEW IN 0.9
 
@@ -137,6 +151,20 @@ grosse Home-Assistant-Installation hat schnell 900 Entitaeten, davon
 willst du ein bis zwei Dutzend. Also gibt es eine Auswahl mit einem
 Vorschlag zum Ueberstimmen und einen Editor, in dem Seiten, Gruppen und
 Geraete frei zusammengestellt werden.
+
+NEU IN 0.9.1
+
+Eine Anleitung: AmiHomeassist.guide, Englisch und Deutsch in einer
+Datei, mit Bildschirmfotos in der Schublade Pics.
+
+Suche in beiden Geraetelisten. Alle, Keine und Vorschlag wirken nur auf
+das, was die Liste zeigt. Uebernehmen baut deine Seiten nicht mehr neu -
+neu gewaehlte Geraete kommen auf die Seite ihres Raums, abgewaehlte
+gehen, alles andere bleibt, wie du es angeordnet hast. Ab 100 Geraeten
+fragt es nach, und jedes Speichern hebt die alte Datei als .bak auf.
+
+Absturz beim Entfernen einer Seite behoben. Waehrungen, die Latin-1
+nicht kennt, erscheinen als ISO-Code (EUR, INR, RUB ...) statt als "?".
 
 NEU IN 0.9
 

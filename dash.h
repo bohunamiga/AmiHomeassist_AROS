@@ -77,6 +77,12 @@ struct Widget *group_insert_widget(struct Group *g, int pos, int kind,
  * muss. */
 void dash_generate(struct Dash *d, struct Catalog *c);
 
+/* Uebernimmt eine geaenderte Geraeteauswahl in die BESTEHENDEN Dashboards:
+ * Abgewaehltes verschwindet, neu Gewaehltes kommt auf die Seite seines
+ * Raums in den Kasten seiner Art (beides wird angelegt, wenn es fehlt).
+ * Alles andere bleibt, wie es im Editor angeordnet wurde. */
+void dash_merge(struct Dash *d, struct Catalog *c, int *added, int *removed);
+
 /* Schlaegt die Darstellung fuer eine Entitaet vor - aus Domain, Einheit und
  * Geraeteklasse. */
 int  widget_kind_for(const struct Entity *e, long *min, long *max);

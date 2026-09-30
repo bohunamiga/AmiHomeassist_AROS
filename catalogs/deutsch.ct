@@ -16,11 +16,11 @@ A_lle
 MSG_BT_NONE
 _Keine
 MSG_BT_APPLY
-_Uebernehmen
+_Übernehmen
 MSG_BT_SAVE
 _Speichern
 MSG_BT_CLOSE
-S_chliessen
+S_chließen
 MSG_WIN_SELECT
 Geräte auswählen
 MSG_WIN_PREFS
@@ -347,3 +347,11 @@ MSG_CHART_EMPTY
 Keine Daten
 MSG_KIND_CHART_MONTH
 Verlauf (Monate)
+MSG_ED_LBL_FIND
+_Suche
+MSG_ASK_MANY
+Du hast %ld Geräte gewählt.\nMehr als etwa 100 machen den Amiga sehr langsam.\n\nTrotzdem übernehmen?
+MSG_ASK_MANY_BT
+_Übernehmen|_Abbrechen
+MSG_STATUS_MERGED
+%ld hinzugefügt, %ld entfernt - deine Seiten bleiben erhalten

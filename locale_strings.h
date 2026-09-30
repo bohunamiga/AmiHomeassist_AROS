@@ -175,8 +175,12 @@
 #define MSG_CHART_DAY            170
 #define MSG_CHART_EMPTY          171
 #define MSG_KIND_CHART_MONTH     172
+#define MSG_ED_LBL_FIND          173
+#define MSG_ASK_MANY             174
+#define MSG_ASK_MANY_BT          175
+#define MSG_STATUS_MERGED        176
 
-#define AMILOC_COUNT 173
+#define AMILOC_COUNT 177
 
 /* Die eingebauten Texte sind Englisch - siehe amiloc.h. */
 static const char *const AMILOC_BUILTIN[AMILOC_COUNT] = {
@@ -353,6 +357,10 @@ static const char *const AMILOC_BUILTIN[AMILOC_COUNT] = {
     /* 170 */ "%ld %s",
     /* 171 */ "No data",
     /* 172 */ "History (months)",
+    /* 173 */ "_Search",
+    /* 174 */ "You have selected %ld devices.\nMore than about 100 make the Amiga very slow.\n\nApply anyway?",
+    /* 175 */ "_Apply|_Cancel",
+    /* 176 */ "%ld added, %ld removed - your pages are kept",
 };
 
 #endif

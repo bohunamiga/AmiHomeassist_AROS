@@ -497,6 +497,120 @@ void dash_mark_used(struct Dash *d, struct Catalog *c)
     }
 }
 
+static BOOL dash_contains(struct Dash *d, const char *id)
+{
+    int i, j, k;
+
+    for (i = 0; i < d->count; i++) {
+        for (j = 0; j < d->p[i].count; j++) {
+            for (k = 0; k < d->p[i].g[j].count; k++) {
+                if (stricmp(d->p[i].g[j].w[k].id, id) == 0) {
+                    return TRUE;
+                }
+            }
+        }
+    }
+    return FALSE;
+}
+
+/* Bis 0.9 erzeugte "Uebernehmen" die Dashboards komplett neu - jede Arbeit
+ * im Editor war damit weg, ohne Rueckfrage. Jetzt wird nur ergaenzt und
+ * entfernt. Leer gewordene Kaesten und Seiten verschwinden, aber nur die,
+ * die hier leer geworden sind - eine im Editor absichtlich leer angelegte
+ * Seite bleibt. */
+void dash_merge(struct Dash *d, struct Catalog *c, int *added, int *removed)
+{
+    int i, j, k;
+
+    *added = 0;
+    *removed = 0;
+
+    for (i = d->count - 1; i >= 0; i--) {
+        struct Page *p = &d->p[i];
+        BOOL page_touched = FALSE;
+
+        for (j = p->count - 1; j >= 0; j--) {
+            struct Group *g = &p->g[j];
+            BOOL touched = FALSE;
+
+            for (k = g->count - 1; k >= 0; k--) {
+                struct Widget *w = &g->w[k];
+                struct Entity *e;
+
+                /* Diagramme bleiben: die Auswahl zaehlt Geraete fuer die
+                 * Abfrage im Takt, ein Diagramm holt seine Werte aber
+                 * selbst. Wer eins nicht mehr will, loescht es im Editor.
+                 * (0.9 nahm Radi so die ganze Energie-Seite weg.) */
+                if (w->kind == WK_TEXT || w->kind == WK_CHART ||
+                        w->id[0] == '\0') {
+                    continue;
+                }
+                /* Nicht im Katalog heisst: in Home Assistant verschwunden.
+                 * Das zeigt die Seite als "fehlt" - nicht still loeschen. */
+                e = catalog_find(c, w->id);
+                if (e && !e->selected) {
+                    group_widget_remove(g, k);
+                    (*removed)++;
+                    touched = TRUE;
+                }
+            }
+            if (touched && g->count == 0) {
+                page_group_remove(p, j);
+                page_touched = TRUE;
+            }
+        }
+        if (page_touched && p->count == 0) {
+            dash_page_remove(d, i);
+        }
+    }
+
+    for (i = 0; i < c->count; i++) {
+        struct Entity *e = &c->list[i];
+        struct Page *p = NULL;
+        struct Group *g = NULL;
+        struct Widget *w;
+        const char *gt;
+        long mn, mx;
+        int kind;
+
+        if (!e->selected || dash_contains(d, e->id)) {
+            continue;
+        }
+        for (j = 0; j < d->count; j++) {
+            if (stricmp(d->p[j].title, e->area) == 0) {
+                p = &d->p[j];
+                break;
+            }
+        }
+        if (!p) {
+            p = dash_add_page(d, e->area, icon_for_area(e->area));
+            if (!p) {
+                return;
+            }
+        }
+        kind = widget_kind_for(e, &mn, &mx);
+        gt = kind_group(kind);
+        for (j = 0; j < p->count; j++) {
+            if (strcmp(p->g[j].title, gt) == 0) {
+                g = &p->g[j];
+                break;
+            }
+        }
+        if (!g) {
+            g = page_add_group(p, gt);
+            if (!g) {
+                return;
+            }
+        }
+        w = group_add_widget(g, kind, e->id, e->name);
+        if (w) {
+            w->min = mn;
+            w->max = mx;
+            (*added)++;
+        }
+    }
+}
+
 /* ------------------------------------------------------------------ */
 /* Datei                                                               */
 /* ------------------------------------------------------------------ */
@@ -555,6 +669,7 @@ int dash_save(struct Dash *d)
     }
 
     sprintf(path, "%s/%s", DASH_DIR, DASH_FILE);
+    file_backup(path);              /* Dashboards.prefs.bak */
     fh = Open((STRPTR)path, MODE_NEWFILE);
     if (!fh) {
         return AH_ENOPREFS;

@@ -347,3 +347,11 @@ MSG_CHART_EMPTY
 Nessun dato
 MSG_KIND_CHART_MONTH
 Andamento (mesi)
+MSG_ED_LBL_FIND
+_Cerca
+MSG_ASK_MANY
+Hai selezionato %ld dispositivi.\nPiù di circa 100 rendono l'Amiga molto lento.\n\nApplicare comunque?
+MSG_ASK_MANY_BT
+_Applica|A_nnulla
+MSG_STATUS_MERGED
+%ld aggiunti, %ld rimossi - le tue pagine restano

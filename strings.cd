@@ -381,3 +381,11 @@ MSG_CHART_EMPTY (//)
 No data
 MSG_KIND_CHART_MONTH (//)
 History (months)
+MSG_ED_LBL_FIND (//)
+_Search
+MSG_ASK_MANY (//)
+You have selected %ld devices.\nMore than about 100 make the Amiga very slow.\n\nApply anyway?
+MSG_ASK_MANY_BT (//)
+_Apply|_Cancel
+MSG_STATUS_MERGED (//)
+%ld added, %ld removed - your pages are kept

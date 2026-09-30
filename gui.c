@@ -56,6 +56,7 @@ const char *VERSTAG = "$VER: AmiHomeassist " AH_VERSION " (" AH_DATE ")";
 enum {
     ID_REFRESH = 1, ID_PAGE,
     ID_OPEN_SEL, ID_SEL_CLICK, ID_SEL_ALL, ID_SEL_NONE, ID_SEL_SUGGEST,
+    ID_SEL_FIND, ID_SEL_CLOSE,
     ID_SEL_APPLY,
     ID_OPEN_PREFS, ID_PREFS_SAVE, ID_OPEN_EDIT,
     ID_WIDGET = 1000            /* + laufende Nummer des Bedienelements */
@@ -63,7 +64,14 @@ enum {
 
 static Object *app;
 static Object *win, *lst_pages, *grp_pages, *txt_status;
-static Object *win_sel, *lst_sel, *txt_sel;
+static Object *win_sel, *lst_sel, *txt_sel, *str_selfind;
+
+/* Zeile der Auswahlliste -> Katalogeintrag. Mit Suchbegriff zeigt die
+ * Liste nur einen Teil des Katalogs. */
+#define SEL_WARN 100            /* ab hier fragt "Uebernehmen" nach */
+static int *g_selmap = NULL;
+static int  g_selmap_cap = 0;
+static int  g_selrows = 0;
 static Object *win_prefs, *str_host, *str_token, *str_poll, *txt_prefs;
 static Object *cyc_unknown;
 static Object *img_side[MDI_COUNT];
@@ -288,6 +296,26 @@ static BOOL sel_ensure(int n)
         return FALSE;
     }
     g_sel_cap = n;
+    return TRUE;
+}
+
+/* Platz fuer n Eintraege, BEVOR ein Objekt gebaut wird. Waechst die
+ * Tabelle waehrend des Aufbaus, verschiebt realloc sie - und die Balken
+ * halten einen Zeiger auf ihren Text (info) mitten in der Tabelle. */
+static BOOL wui_reserve(int n)
+{
+    struct WUI *nw;
+
+    if (n <= g_wui_cap) {
+        return TRUE;
+    }
+    n += 16;                        /* etwas Luft fuer den Editor */
+    nw = (struct WUI *)realloc(g_wui, (size_t)n * sizeof(struct WUI));
+    if (!nw) {
+        return FALSE;
+    }
+    g_wui = nw;
+    g_wui_cap = n;
     return TRUE;
 }
 
@@ -801,6 +829,13 @@ static void pages_build(void)
     int i;
 
     DoMethod(grp_pages, MUIM_Group_InitChange);
+
+    /* Die Seitengruppe merkt sich die NUMMER der sichtbaren Seite. Wird
+     * die letzte Seite entfernt, waere diese Nummer nach dem Neuaufbau
+     * ungueltig, und MUI 3.8 griff ins Leere (Guru 8000 0008 beim
+     * Entfernen von "No room"). Deshalb vorher auf die erste Seite -
+     * solange es sie noch gibt. show_page() waehlt danach die richtige. */
+    set(grp_pages, MUIA_Group_ActivePage, 0);
     pages_clear();
 
     /* Erst jetzt, nach dem Abraeumen: die alten Objekte zeigten noch auf
@@ -811,6 +846,17 @@ static void pages_build(void)
     if (!lblfix_ensure(g_dash.count > 0 ? g_dash.count : 1)) {
         DoMethod(grp_pages, MUIM_Group_ExitChange);
         return;
+    }
+    {
+        int n = 0, j, k;
+
+        for (i = 0; i < g_dash.count; i++) {
+            for (j = 0; j < g_dash.p[i].count; j++) {
+                n += g_dash.p[i].g[j].count;
+            }
+        }
+        (void)k;
+        wui_reserve(n);             /* alte Objekte sind schon weg */
     }
 
     if (g_dash.count == 0) {
@@ -1199,35 +1245,73 @@ static void sel_count_show(void)
          (long)catalog_selected_count(&g_cat), (long)g_cat.count);
 }
 
+/* Passt ein Eintrag zum Suchbegriff? Gesucht wird in Raum, Name und ID. */
+static BOOL sel_matches(const struct Entity *e, const char *find)
+{
+    return (BOOL)(text_contains(e->name, find) ||
+                  text_contains(e->area, find) ||
+                  text_contains(e->id, find));
+}
+
+static const char *sel_find(void)
+{
+    char *s = NULL;
+
+    get(str_selfind, MUIA_String_Contents, &s);
+    return s ? s : "";
+}
+
 static void sel_fill(void)
 {
+    const char *find = sel_find();
     int i;
 
     if (!sel_ensure(g_cat.count)) {
         say(txt_sel, GetStr(MSG_ERR_NOMEM));
         return;
     }
+    if (g_cat.count > g_selmap_cap) {
+        free(g_selmap);
+        g_selmap = malloc((size_t)g_cat.count * sizeof(int));
+        g_selmap_cap = g_selmap ? g_cat.count : 0;
+        if (!g_selmap) {
+            say(txt_sel, GetStr(MSG_ERR_NOMEM));
+            return;
+        }
+    }
 
     set(lst_sel, MUIA_NList_Quiet, TRUE);
     DoMethod(lst_sel, MUIM_NList_Clear);
+    g_selrows = 0;
     for (i = 0; i < g_cat.count; i++) {
         struct Entity *e = &g_cat.list[i];
 
+        if (*find && !sel_matches(e, find)) {
+            continue;
+        }
         sprintf(SELLABEL(i), "\33o[%ld] %-14s %s",
                 (long)(e->selected ? IMG_CHECK_ON : IMG_CHECK_OFF),
                 e->area, e->name);
         DoMethod(lst_sel, MUIM_NList_InsertSingle, SELLABEL(i),
                  MUIV_NList_Insert_Bottom);
+        g_selmap[g_selrows++] = i;
     }
     set(lst_sel, MUIA_NList_Quiet, FALSE);
     sel_count_show();
 }
 
+/* Alle / Keine / Vorschlag wirken nur auf das, was die Liste gerade zeigt.
+ * Mit Suchbegriff "grid" heisst "Alle" also: alle mit grid - nicht
+ * versehentlich den ganzen Katalog. */
 static void sel_set_all(int mode)
 {
+    const char *find = sel_find();
     int i;
 
     for (i = 0; i < g_cat.count; i++) {
+        if (*find && !sel_matches(&g_cat.list[i], find)) {
+            continue;
+        }
         if (mode == 0) {
             g_cat.list[i].selected = FALSE;
         } else if (mode == 1) {
@@ -1244,9 +1328,10 @@ static void sel_click(void)
     LONG pos = -1;
 
     get(lst_sel, MUIA_NList_Active, &pos);
-    if (pos < 0 || pos >= g_cat.count) {
+    if (pos < 0 || pos >= g_selrows) {
         return;
     }
+    pos = g_selmap[pos];            /* Zeile -> Katalogeintrag */
     g_cat.list[pos].selected = (BOOL)!g_cat.list[pos].selected;
     SELLABEL(pos)[3] =
         (char)('0' + (g_cat.list[pos].selected ? IMG_CHECK_ON
@@ -1518,6 +1603,7 @@ static void reload_all(BOOL fetch)
     sidebar_fill();
     pages_build();
     show_page(page);
+    editor_refresh(page);
     status_summary();
 }
 
@@ -1659,6 +1745,15 @@ static int app_main(void)
                     MUIA_Text_Contents,
                     (char *)GetStr(MSG_HINT_SELECT),
                     TAG_DONE),
+                MUIA_Group_Child, MUI_NewObject(MUIC_Group,
+                    MUIA_Group_Horiz, TRUE,
+                    MUIA_Group_Child, colon_label(MSG_ED_LBL_FIND),
+                    MUIA_Group_Child, str_selfind = MUI_NewObject(MUIC_String,
+                        MUIA_String_MaxLen, 40,
+                        MUIA_Frame,         MUIV_Frame_String,
+                        MUIA_CycleChain,    1,
+                        TAG_DONE),
+                    TAG_DONE),
                 MUIA_Group_Child, MUI_NewObject(MUIC_NListview,
                     MUIA_NListview_NList, lst_sel = MUI_NewObject(MUIC_NList,
                         MUIA_NList_Input, TRUE,
@@ -1739,7 +1834,7 @@ static int app_main(void)
              app, 2, MUIM_Application_ReturnID, ID_PAGE);
 
     DoMethod(win_sel, MUIM_Notify, MUIA_Window_CloseRequest, TRUE,
-             win_sel, 3, MUIM_Set, MUIA_Window_Open, FALSE);
+             app, 2, MUIM_Application_ReturnID, ID_SEL_CLOSE);
     DoMethod(lst_sel, MUIM_Notify, MUIA_NList_EntryClick, MUIV_EveryTime,
              app, 2, MUIM_Application_ReturnID, ID_SEL_CLICK);
     DoMethod(bt_all, MUIM_Notify, MUIA_Pressed, FALSE,
@@ -1750,6 +1845,8 @@ static int app_main(void)
              app, 2, MUIM_Application_ReturnID, ID_SEL_SUGGEST);
     DoMethod(bt_apply, MUIM_Notify, MUIA_Pressed, FALSE,
              app, 2, MUIM_Application_ReturnID, ID_SEL_APPLY);
+    DoMethod(str_selfind, MUIM_Notify, MUIA_String_Contents, MUIV_EveryTime,
+             app, 2, MUIM_Application_ReturnID, ID_SEL_FIND);
 
     DoMethod(win_prefs, MUIM_Notify, MUIA_Window_CloseRequest, TRUE,
              win_prefs, 3, MUIM_Set, MUIA_Window_Open, FALSE);
@@ -1761,13 +1858,18 @@ static int app_main(void)
     editor_build(app, &g_dash, &g_cat);
 
     prefs_to_gui();
+    /* Erst Daten holen und Seiten bauen, DANN das Fenster oeffnen. Offen
+     * und leer hatte es seine Mindestgroesse; kamen die Seiten hinein,
+     * wuchs es - und MUI 3.8 waechst ein Fenster, indem es es schliesst
+     * und neu oeffnet. Das sah aus wie ein Absturz beim Start. */
+    if (g_have_prefs) {
+        reload_all(TRUE);
+    }
     set(win, MUIA_Window_Open, TRUE);
 
     if (!g_have_prefs) {
         say(txt_status, ha_last_error());
         set(win_prefs, MUIA_Window_Open, TRUE);
-    } else {
-        reload_all(TRUE);
     }
 
     if (timer_open()) {
@@ -1911,6 +2013,8 @@ static int app_main(void)
                 }
 
                 case ID_OPEN_SEL:
+                    SetAttrs(str_selfind, MUIA_NoNotify, TRUE,
+                             MUIA_String_Contents, (ULONG)"", TAG_DONE);
                     sel_fill();
                     set(win_sel, MUIA_Window_Open, TRUE);
                     break;
@@ -1918,19 +2022,47 @@ static int app_main(void)
                 case ID_SEL_ALL:     sel_set_all(1); break;
                 case ID_SEL_NONE:    sel_set_all(0); break;
                 case ID_SEL_SUGGEST: sel_set_all(2); break;
-                case ID_SEL_APPLY:
+                case ID_SEL_FIND:    sel_fill(); break;
+
+                case ID_SEL_CLOSE:
+                    /* Ohne "Uebernehmen" geschlossen: die Haekchen gelten
+                     * nicht. Die Abfrage im Takt holt, was markiert ist -
+                     * blieben hier 763 Haekchen stehen, holte sie 763. */
+                    dash_mark_used(&g_dash, &g_cat);
+                    set(win_sel, MUIA_Window_Open, FALSE);
+                    break;
+
+                case ID_SEL_APPLY: {
+                    int n = catalog_selected_count(&g_cat);
+                    int added = 0, removed = 0;
+                    int keep = main_page();
+
+                    /* Ab 100 Geraeten wird jede Abfrage im Takt gross -
+                     * ein A500 kommt da nicht mehr mit. Nicht verbieten,
+                     * aber nachfragen: "Alle" ist schnell gedrueckt. */
+                    if (n > SEL_WARN &&
+                            MUI_Request(app, win_sel, 0, "AmiHomeassist",
+                                        (char *)GetStr(MSG_ASK_MANY_BT),
+                                        (char *)GetStr(MSG_ASK_MANY),
+                                        (long)n) != 1) {
+                        break;
+                    }
                     import_save(&g_cat);
                     selection_remember();
-                    /* Aus der neuen Auswahl frische Seiten bauen. */
-                    dash_generate(&g_dash, &g_cat);
+                    /* Ergaenzen statt neu erzeugen - die Seiten, wie man
+                     * sie im Editor angeordnet hat, bleiben. */
+                    dash_merge(&g_dash, &g_cat, &added, &removed);
                     dash_save(&g_dash);
                     dash_mark_used(&g_dash, &g_cat);
                     sidebar_fill();
                     pages_build();
-                    show_page(0);           /* alles neu - von vorn */
-                    status_summary();
+                    show_page(keep);
+                    editor_refresh(keep);
+                    sayf(txt_status, GetStr(MSG_STATUS_MERGED),
+                         (long)added, (long)removed);
                     set(win_sel, MUIA_Window_Open, FALSE);
                     break;
+                }
 
                 case ID_OPEN_EDIT:
                     editor_open(main_page());

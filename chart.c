@@ -113,6 +113,22 @@ static void chart_draw(struct IClass *cl, Object *obj)
     SetFont(rp, tf);
     SetDrMd(rp, JAM1);
 
+    /* Keine verwertbaren Werte? Leistungssensoren (W, kW) fuehren nur
+     * Mittelwerte, keine "change" - Home Assistant liefert dann lauter
+     * null. Eine leere Achse bis 1 saehe aus wie "nichts verbraucht". */
+    {
+        int k, valid = 0;
+
+        for (k = 0; k < d->n; k++) {
+            if (d->pt[k].valid) {
+                valid++;
+            }
+        }
+        if (valid == 0) {
+            d->n = 0;
+        }
+    }
+
     if (d->n == 0) {
         const char *s = GetStr(MSG_CHART_EMPTY);
         int tw = TextLength(rp, (STRPTR)s, strlen(s));

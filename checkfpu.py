@@ -79,6 +79,20 @@ def find_tables(rows, raw, known):
     return found
 
 
+def merge(tables):
+    """Ueberlappende Tabellen zu einer zusammenfassen. Seit 0.9.1 legt der
+    Compiler fuer die Zeichenumwandlung eine zweite Tabelle an, die in die
+    erste hineinreicht - ohne Zusammenfassen wollte check() einen Abschnitt
+    von hinten nach vorn zerlegen, und objdump brach ab."""
+    out = []
+    for s, e in tables:
+        if out and s <= out[-1][1]:
+            out[-1] = (out[-1][0], max(out[-1][1], e))
+        else:
+            out.append((s, e))
+    return out
+
+
 def check(objdump, path):
     rows, raw = disasm(objdump, path)
     tables = []
@@ -90,12 +104,14 @@ def check(objdump, path):
         neu = find_tables(rows, raw, tables)
         if not neu:
             break
-        tables = sorted(tables + neu)
+        tables = merge(sorted(tables + neu))
 
         rows, raw = [], {}
         grenzen = [None] + [t[1] for t in tables]
         enden = [t[0] for t in tables] + [None]
         for start, stop in zip(grenzen, enden):
+            if start is not None and stop is not None and start >= stop:
+                continue            # zwei Tabellen stossen aneinander
             r, x = disasm(objdump, path, start, stop)
             rows += r
             raw.update(x)

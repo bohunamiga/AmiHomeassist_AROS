@@ -1,6 +1,42 @@
 AmiHomeassist - was sich geaendert hat
 =====================================
 
+0.9.1   30.09.2026
+
+  Anleitung. AmiHomeassist.guide erklaert alles, zweisprachig in einer
+  Datei, mit Bildschirmfotos in der Schublade Pics.
+
+  Suche in beiden Geraetelisten - in der Auswahl und beim Hinzufuegen im
+  Editor. Gesucht wird in Raum, Name und Entity-ID. "Alle", "Keine" und
+  "Vorschlag" wirken nur noch auf das, was die Liste gerade zeigt. Im
+  Editor fuegt ein Doppelklick das Geraet hinzu.
+
+  "Uebernehmen" baut die Seiten nicht mehr neu. Bisher war damit jede
+  Arbeit im Editor weg. Jetzt kommen neu gewaehlte Geraete auf die Seite
+  ihres Raums, abgewaehlte verschwinden, der Rest bleibt, wie er war.
+  Verlaufsdiagramme bleiben immer stehen. Ab 100 Geraeten fragt das
+  Programm vorher nach - mehr schafft ein A500 nicht. Wer das Fenster
+  ohne Uebernehmen schliesst, verwirft seine Haekchen; bisher galten sie
+  trotzdem fuer die Abfrage im Takt.
+
+  Sicherung: vor jedem Speichern bleibt die alte Datei als .bak liegen.
+
+  Absturz beim Entfernen einer Seite behoben (Guru 8000 0008). Oeffnet
+  man den Editor, waehrend "Uebernehmen" oder "Aktualisieren" die Seiten
+  aendert, zeigen seine Listen jetzt nicht mehr ins Leere.
+
+  Beim Start oeffnet sich das Fenster erst, wenn alle Seiten fertig sind,
+  statt sich zu oeffnen, zu schliessen und wieder zu oeffnen.
+
+  Waehrungen: Zeichen, die Latin-1 nicht kennt, werden zum ISO-Code -
+  12,40 EUR statt "12,40 ?", ebenso INR, RUB, TRY und andere.
+  Osteuropaeische Buchstaben werden zum Grundbuchstaben ("zl" statt
+  "z?"). Auch Zustaende werden jetzt umgewandelt, nicht nur Namen.
+
+  Ein Diagramm ohne verwertbare Werte zeigt "Keine Daten" statt einer
+  leeren Achse.
+
+
 0.9   30.09.2026
 
   Verlaeufe. Neue Darstellungsart fuer Zaehler wie den Stromverbrauch:
