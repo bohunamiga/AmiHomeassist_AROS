@@ -91,14 +91,27 @@ static int  g_pickcount = 0;
  * konstanter Ausdruck ist. MUIO_Cycle merkt sich nur den Zeiger auf das
  * Feld - es muss also statisch sein und darf nicht auf dem Stapel liegen.
  * locale_lists_init() wird einmal vor dem Aufbau des Fensters gerufen. */
-static const char *KIND_TEXT[WK_COUNT + 1];
+/* Das Diagramm steht zweimal in der Auswahl - Tage und Monate -, damit
+ * es keine eigenen Knoepfe fuer den Zeitraum braucht. Eintrag KIND_ENTRIES-2
+ * ist WK_CHART mit Tagen, der letzte WK_CHART mit Monaten. */
+#define KIND_ENTRIES (WK_COUNT + 1)
+static const char *KIND_TEXT[KIND_ENTRIES + 1];
 static const char *ICON_TEXT[ICON_TEXT_COUNT + 1];
 
 static const short KIND_MSG[WK_COUNT] = {
     MSG_KIND_TOGGLE, MSG_KIND_LAMP, MSG_KIND_VALUE,
     MSG_KIND_GAUGE,  MSG_KIND_COVER, MSG_KIND_TEXT,
-    MSG_KIND_CLIMATE
+    MSG_KIND_CLIMATE, MSG_KIND_CHART
 };
+
+/* Welcher Eintrag der Auswahl gehoert zu diesem Widget? */
+static int kind_entry(const struct Widget *w)
+{
+    if (w->kind == WK_CHART && w->min == AH_PERIOD_MONTH) {
+        return KIND_ENTRIES - 1;
+    }
+    return w->kind;
+}
 
 /* Muss zur Reihenfolge der Liste ICONS in mdi.py passen. */
 static const short ICON_MSG[ICON_TEXT_COUNT] = {
@@ -123,7 +136,8 @@ static void locale_lists_init(void)
     for (i = 0; i < WK_COUNT; i++) {
         KIND_TEXT[i] = GetStr(KIND_MSG[i]);
     }
-    KIND_TEXT[WK_COUNT] = NULL;      /* MUIO_Cycle liest bis zur NULL */
+    KIND_TEXT[WK_COUNT] = GetStr(MSG_KIND_CHART_MONTH);
+    KIND_TEXT[KIND_ENTRIES] = NULL;  /* MUIO_Cycle liest bis zur NULL */
 
     for (i = 0; i < ICON_TEXT_COUNT; i++) {
         ICON_TEXT[i] = GetStr(ICON_MSG[i]);
@@ -238,7 +252,7 @@ static void fill_rows(void)
             g_row[n].gi = j;
             g_row[n].wi = k;
             sprintf(ROWTEXT(n), "    %-26s %s", g->w[k].label,
-                    KIND_TEXT[g->w[k].kind]);
+                    KIND_TEXT[kind_entry(&g->w[k])]);
             DoMethod(g_rows, MUIM_NList_InsertSingle, ROWTEXT(n),
                      MUIV_NList_Insert_Bottom);
             n++;
@@ -272,7 +286,7 @@ static void show_selection(void)
             struct Widget *w = &g->w[g_row[r].wi];
 
             set(g_name, MUIA_String_Contents, w->label);
-            set(g_kind, MUIA_Cycle_Active, (LONG)w->kind);
+            set(g_kind, MUIA_Cycle_Active, (LONG)kind_entry(w));
         }
     }
 }
@@ -830,14 +844,19 @@ Object *editor_build(Object *app, struct Dash *d, struct Catalog *c)
     return g_win;
 }
 
-void editor_open(void)
+/* Oeffnet auf der Seite, die im Hauptfenster gerade zu sehen ist - wer im
+ * Wohnzimmer auf "Bearbeiten" drueckt, will das Wohnzimmer bearbeiten. */
+void editor_open(int page)
 {
     if (!g_win) {
         return;                    /* Fenster kam nicht zustande */
     }
     fill_pages();
     if (g_d->count) {
-        set(g_pages, MUIA_NList_Active, 0);
+        if (page < 0 || page >= g_d->count) {
+            page = 0;
+        }
+        set(g_pages, MUIA_NList_Active, (LONG)page);
     }
     fill_rows();
     set(g_win, MUIA_Window_Open, TRUE);
@@ -987,9 +1006,30 @@ BOOL editor_handle(ULONG id, BOOL *changed)
                     &g_d->p[pi].g[g_row[r].gi].w[g_row[r].wi];
 
                 get(g_kind, MUIA_Cycle_Active, &n);
-                w->kind = (int)n;
-                if (w->kind == WK_GAUGE && w->max <= w->min) {
-                    w->max = w->min + 100;
+                if (n >= WK_CHART) {
+                    /* Diagramm: min ist der Zeitraum, max die Zahl der
+                     * Balken. Neuer Zeitraum heisst neue Voreinstellung -
+                     * 30 Tage oder 12 Monate. */
+                    int period = (n == KIND_ENTRIES - 1) ? AH_PERIOD_MONTH
+                                                         : AH_PERIOD_DAY;
+
+                    if (w->kind != WK_CHART || w->min != period) {
+                        w->min = period;
+                        w->max = 0;
+                    }
+                    w->kind = WK_CHART;
+                    dash_chart_defaults(w);
+                } else {
+                    /* Zurueck vom Diagramm: min/max hiessen dort etwas
+                     * anderes, als Balkenbereich waeren sie Unsinn. */
+                    if (w->kind == WK_CHART) {
+                        w->min = 0;
+                        w->max = 100;
+                    }
+                    w->kind = (int)n;
+                    if (w->kind == WK_GAUGE && w->max <= w->min) {
+                        w->max = w->min + 100;
+                    }
                 }
                 fill_rows();
                 *changed = TRUE;
@@ -1028,4 +1068,17 @@ BOOL editor_handle(ULONG id, BOOL *changed)
             break;
     }
     return TRUE;
+}
+
+/* Die Seite, die im Editor gewaehlt ist, oder -1 bei geschlossenem Fenster.
+ * Das Hauptfenster folgt ihr - siehe gui.c. */
+int editor_page(void)
+{
+    LONG open = FALSE;
+
+    if (!g_win) {
+        return -1;
+    }
+    get(g_win, MUIA_Window_Open, &open);
+    return open ? cur_page() : -1;
 }

@@ -30,8 +30,8 @@
  * geratener Wert sondern gemessen plus Reserve. */
 /* Die Versionsnummer an genau einer Stelle: $VER in beiden Programmen und
  * die kleine Zeile unter dem Logo kommen von hier. */
-#define AH_VERSION "0.8"
-#define AH_DATE    "29.9.2026"
+#define AH_VERSION "0.9"
+#define AH_DATE    "30.9.2026"
 
 #define ID_LEN     96
 #define NAME_LEN   64
@@ -155,5 +155,28 @@ void catalog_sort(struct Catalog *c);
 
 /* Die Domain einer Entity-ID, also der Teil vor dem Punkt. */
 void entity_domain(const char *id, char *out, int outsize);
+
+/* Langzeitstatistik aus Home Assistant - die Balken "Verbrauch je Tag/Monat".
+ * Die gibt es nur ueber die WebSocket-Schnittstelle (recorder/
+ * statistics_during_period), nicht ueber REST. Werte in Hundertsteln, damit
+ * ohne FPU gerechnet werden kann: 397.00 kWh = 39700. */
+#define AH_PERIOD_DAY   0
+#define AH_PERIOD_MONTH 1
+
+struct StatPoint {
+    ULONG start;                /* Beginn des Zeitraums, Sekunden seit 1970 (UTC) */
+    long  value;                /* Aenderung in Hundertsteln */
+    BOOL  valid;                /* FALSE, wenn Home Assistant null liefert */
+};
+
+/* Holt die letzten 'max' Zeitraeume. *count sagt, wie viele es wurden. */
+int  ha_statistics(struct Prefs *p, const char *entity_id, int period,
+                   struct StatPoint *out, int max, int *count);
+
+/* Kalendertag eines Zeitraums. Home Assistant beginnt Tage und Monate um
+ * Mitternacht ORTSZEIT und liefert das als UTC - "1. September" kommt also
+ * als 31. August 22:00. Zwoelf Stunden drauf treffen in jeder Zeitzone
+ * zwischen -12 und +12 den richtigen Tag. */
+void stat_date(ULONG start, int *year, int *month, int *day);
 
 #endif

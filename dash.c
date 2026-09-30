@@ -376,7 +376,8 @@ static const char *kind_group(int kind)
         MSG_GROUP_READINGS,    /* WK_GAUGE  */
         MSG_GROUP_COVERS,      /* WK_COVER  */
         -1,                    /* WK_TEXT - ohne Ueberschrift */
-        MSG_GROUP_CLIMATE      /* WK_CLIMATE */
+        MSG_GROUP_CLIMATE,     /* WK_CLIMATE */
+        MSG_GROUP_CHARTS       /* WK_CHART */
     };
 
     return (ID[kind] < 0) ? "" : GetStr(ID[kind]);
@@ -500,8 +501,20 @@ void dash_mark_used(struct Dash *d, struct Catalog *c)
 /* Datei                                                               */
 /* ------------------------------------------------------------------ */
 
+/* Diagramm: Zeitraum Tag oder Monat, 1 bis 60 Balken. Alles andere wird
+ * auf die Voreinstellung gezogen - 30 Tage oder 12 Monate. */
+void dash_chart_defaults(struct Widget *w)
+{
+    if (w->min != AH_PERIOD_DAY && w->min != AH_PERIOD_MONTH) {
+        w->min = AH_PERIOD_DAY;
+    }
+    if (w->max < 1 || w->max > 60) {
+        w->max = (w->min == AH_PERIOD_MONTH) ? 12 : 30;
+    }
+}
+
 static const char *KIND_NAME[WK_COUNT] = {
-    "toggle", "lamp", "value", "gauge", "cover", "text", "climate"
+    "toggle", "lamp", "value", "gauge", "cover", "text", "climate", "chart"
 };
 
 static int kind_from_name(const char *s)
@@ -566,8 +579,9 @@ int dash_save(struct Dash *d)
             for (k = 0; k < g->count; k++) {
                 struct Widget *w = &g->w[k];
 
-                if (w->kind == WK_GAUGE) {
-                    FPrintf(fh, "    gauge %s \"%s\" %ld %ld\n",
+                if (w->kind == WK_GAUGE || w->kind == WK_CHART) {
+                    FPrintf(fh, "    %s %s \"%s\" %ld %ld\n",
+                            (LONG)(ULONG)KIND_NAME[w->kind],
                             (LONG)(ULONG)w->id, (LONG)(ULONG)w->label,
                             (LONG)w->min, (LONG)w->max);
                 } else if (w->kind == WK_TEXT) {
@@ -697,16 +711,19 @@ int dash_load(struct Dash *d)
             {
                 struct Widget *w = group_add_widget(grp, kind,
                                        (kind == WK_TEXT) ? "" : id, title);
-                if (w && kind == WK_GAUGE) {
+                if (w && (kind == WK_GAUGE || kind == WK_CHART)) {
                     if (next_word(&p, word, sizeof(word))) {
                         w->min = atol(word);
                     }
                     if (next_word(&p, word, sizeof(word))) {
                         w->max = atol(word);
                     }
-                    if (w->max <= w->min) {
-                        w->max = w->min + 100;
-                    }
+                }
+                if (w && kind == WK_GAUGE && w->max <= w->min) {
+                    w->max = w->min + 100;
+                }
+                if (w && kind == WK_CHART) {
+                    dash_chart_defaults(w);
                 }
             }
         }

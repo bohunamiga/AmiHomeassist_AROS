@@ -1,9 +1,9 @@
-Short:        Home Assistant dashboards for MUI, drag&drop
-Kurz:         Home Assistant auf dem Amiga, Drag & Drop
+Short:        Home Assistant dashboards for MUI, charts
+Kurz:         Home Assistant auf dem Amiga, Verlaeufe
 Author:       radi777
 Uploader:     thomas.radeck gmail com (radi777, see note below)
 Type:         comm/tcp
-Version:      0.8
+Version:      0.9
 Architecture: m68k-amigaos
 Requires:     dev/mui/MCC_NList-0.128.lha
 Distribution: Aminet
@@ -23,36 +23,39 @@ easily has 900 entities and you want a dozen or two. So there is a
 picker with a suggestion you can overrule, and an editor where pages,
 groups and devices are put together freely.
 
-NEW IN 0.8
+NEW IN 0.9
 
-Tidier pages. Labels now sit right-aligned with a colon in front of
-their value, the way MUI forms look, and they line up across all groups
-of a page. All control buttons - up, stop, down, colder, warmer, mode -
-have the same width and stand in columns; the mode button no longer
-jumps when it changes from "auto" to "heat". The settings window has
-colons too, and the version number sits small under the logo.
+History charts. A new widget kind for meters such as your power
+consumption: a bar chart of the last 30 days or 12 months, like the
+statistics cards in Home Assistant. The values come from Home
+Assistant's long-term statistics, which are only available over its
+WebSocket interface - so AmiHomeassist now speaks a small piece of
+WebSocket. One query is 1 to 3 KB and takes half a second on a 68030
+with a plipbox. Charts are fetched at start, on Refresh and every ten
+minutes.
 
-Unknown values. When a device reports "unknown", "unavailable" or
-nothing at all, you choose what happens: show it, grey it out (the
-default) or hide it. A hidden row disappears, and a group left empty
-disappears with it. When the device comes back, so does the row.
+They are drawn by a MUI class of their own - no third-party class to
+install, no FPU. The grid adapts to the height available, the date
+labels to the width. In the editor pick "History (days)" or "History
+(months)" as the kind. The shell version lists the same values:
 
-A window or door sensor that had lost its connection used to show as
-"closed". It now shows what Home Assistant reports.
+    AmiHomeassistCLI HISTORY=sensor.energy MONTH
 
-Drag and drop in the editor. Drag a device to another place or into
-another group, a whole group by its heading, a page in the page list.
-Up and Down still work from the keyboard.
+Freeze on quit fixed. 0.8 switched to a larger stack through the C
+library; started from Workbench, the Amiga froze hard on quitting, no
+Guru. The program now switches the stack itself and switches it back
+before it ends. If you run 0.8, please update.
 
-Crash on real 68030 machines fixed. Without a stack entry in the icon,
-Workbench gives a program only 4 KB, which is too little for MUI. On an
-A500 with a TF536 this ended in Guru 8000 0003 and 0100 000F. The
-program now sets up its own stack, however it is started.
+Editor and main window stay on the same page: the editor opens where
+you are, and after closing it you are where you last worked. Refresh
+no longer jumps back to the first page.
 
-With only one to four devices adopted, the regular state query wrote
-past the end of a buffer. Fixed.
+ALSO SINCE 0.8
 
-The number inside a bar disappeared after the first page change. Fixed.
+Labels right-aligned with a colon and buttons of equal width in
+columns, a setting for "unknown"/"unavailable" values (show, grey out,
+hide), drag and drop in the editor, and a stack fix for real 68030
+machines.
 
 WIDGET KINDS
 
@@ -64,6 +67,8 @@ WIDGET KINDS
   Thermostat  climate - current and target temperature, colder, warmer,
               and the operating mode
   Text        a caption
+  History     sensor - bar chart of the last 30 days or 12 months,
+              for sensors with long-term statistics (a state_class)
 
 When you add a device the program suggests a kind, from its domain and
 device class. The editor lets you change it.
@@ -133,38 +138,41 @@ willst du ein bis zwei Dutzend. Also gibt es eine Auswahl mit einem
 Vorschlag zum Ueberstimmen und einen Editor, in dem Seiten, Gruppen und
 Geraete frei zusammengestellt werden.
 
-NEU IN 0.8
+NEU IN 0.9
 
-Aufgeraeumte Seiten. Die Beschriftungen stehen rechtsbuendig mit
-Doppelpunkt vor ihrem Wert, wie in einem MUI-Formular, und fluchten
-ueber alle Kaesten einer Seite. Alle Bedienknoepfe - Auf, Stop, Zu,
-kaelter, waermer, Betriebsart - sind gleich breit und stehen in
-Spalten; der Knopf der Betriebsart springt nicht mehr, wenn er von
-"auto" auf "Heizen" wechselt. Auch das Einstellungsfenster hat
-Doppelpunkte, und unter dem Logo steht klein die Versionsnummer.
+Verlaeufe. Eine neue Darstellungsart fuer Zaehler wie den
+Stromverbrauch: ein Balkendiagramm der letzten 30 Tage oder 12 Monate,
+wie die Statistik-Karten in Home Assistant. Die Werte kommen aus der
+Langzeitstatistik von Home Assistant, die es nur ueber die
+WebSocket-Schnittstelle gibt - AmiHomeassist spricht dafuer jetzt ein
+kleines Stueck WebSocket. Eine Abfrage ist 1 bis 3 KB gross und dauert
+auf einem 68030 mit plipbox eine halbe Sekunde. Geholt wird beim Start,
+bei "Aktualisieren" und alle zehn Minuten.
 
-Unbekannte Werte. Meldet ein Geraet "unknown", "unavailable" oder gar
-nichts, laesst sich waehlen, was geschieht: anzeigen, ausgrauen
-(Voreinstellung) oder ausblenden. Eine ausgeblendete Zeile
-verschwindet, und ein Kasten, der dadurch leer wird, gleich mit.
-Meldet sich das Geraet zurueck, ist auch die Zeile wieder da.
+Gezeichnet wird von einer eigenen MUI-Klasse - keine Fremdklasse, keine
+FPU. Das Raster passt sich der Hoehe an, die Datumsbeschriftung der
+Breite. Im Editor "Verlauf (Tage)" oder "Verlauf (Monate)" als Art
+waehlen. Die Shell-Fassung listet dieselben Werte:
 
-Ein Fenster- oder Tuersensor ohne Verbindung stand bisher als "zu" da.
-Jetzt steht dort, was Home Assistant meldet.
+    AmiHomeassistCLI HISTORY=sensor.strom MONTH
 
-Ziehen und Ablegen im Editor. Geraete an eine andere Stelle oder in
-einen anderen Kasten ziehen, ganze Kaesten an ihrer Ueberschrift,
-Seiten in der Seitenliste. Hoch und Runter gehen weiter per Tastatur.
+Einfrieren beim Beenden behoben. 0.8 schaltete ueber die C-Bibliothek
+auf einen groesseren Stapel um; von der Workbench gestartet fror der
+Amiga beim Beenden hart ein, ohne Guru. Jetzt schaltet das Programm
+selbst um und vor dem Ende selbst zurueck. Wer 0.8 benutzt, sollte
+wechseln.
 
-Absturz auf echten 68030 behoben. Ohne Stack-Eintrag im Icon gibt die
-Workbench einem Programm nur 4 KB, zu wenig fuer MUI. Auf einem A500
-mit TF536 endete das in Guru 8000 0003 und 0100 000F. Das Programm
-stellt sich seinen Stapel jetzt selbst, gleich wie es gestartet wird.
+Editor und Hauptfenster zeigen dieselbe Seite: der Editor oeffnet dort,
+wo man gerade ist, und nach dem Schliessen steht man dort, wo man
+zuletzt gearbeitet hat. "Aktualisieren" springt nicht mehr an den
+Anfang.
 
-Bei nur einem bis vier uebernommenen Geraeten schrieb die Abfrage im
-Takt ueber das Ende eines Puffers hinaus. Behoben.
+AUSSERDEM SEIT 0.8
 
-Die Zahl im Balken verschwand nach dem ersten Seitenwechsel. Behoben.
+Beschriftungen rechtsbuendig mit Doppelpunkt, gleich breite Knoepfe in
+Spalten, eine Einstellung fuer "unknown"/"unavailable" (anzeigen,
+ausgrauen, ausblenden), Ziehen und Ablegen im Editor und die
+Stapel-Korrektur fuer echte 68030.
 
 DARSTELLUNGSARTEN
 
@@ -176,6 +184,8 @@ DARSTELLUNGSARTEN
   Thermostat  climate - Ist- und Solltemperatur, kaelter, waermer und
               die Betriebsart
   Text        eine Zwischenueberschrift
+  Verlauf     sensor - Balkendiagramm der letzten 30 Tage oder 12
+              Monate, fuer Sensoren mit Langzeitstatistik (state_class)
 
 Beim Hinzufuegen schlaegt das Programm eine Art vor, aus Domain und
 Geraeteklasse; im Editor laesst sie sich aendern.

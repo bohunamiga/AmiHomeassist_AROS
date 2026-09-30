@@ -1189,3 +1189,526 @@ void catalog_sort(struct Catalog *c)
 {
     qsort(c->list, c->count, sizeof(struct Entity), cmp_entity);
 }
+
+/* ------------------------------------------------------------------ */
+/* Langzeitstatistik ueber WebSocket                                   */
+/* ------------------------------------------------------------------ */
+
+/* Nur so viel WebSocket, wie eine einzige Anfrage braucht: Handshake,
+ * Textrahmen hin (maskiert, wie RFC 6455 es vom Client verlangt), Textrahmen
+ * zurueck. Kein TLS - wie der Rest des Programms spricht das nur http.
+ * Die Antwort ist klein: 30 Tage sind rund 2 KB, 12 Monate unter 1 KB. */
+
+#define WS_MAX_MSG (256L * 1024L)   /* groesser wird eine Antwort nicht */
+
+/* Tage seit 1970 -> Jahr, Monat, Tag. Howard Hinnants civil_from_days,
+ * nur mit ganzen Zahlen. */
+static void civil_from_days(long z, int *y, int *m, int *d)
+{
+    long era, doe, yoe, doy, mp;
+
+    z += 719468;
+    era = (z >= 0 ? z : z - 146096) / 146097;
+    doe = z - era * 146097;
+    yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    mp  = (5 * doy + 2) / 153;
+    *d  = (int)(doy - (153 * mp + 2) / 5 + 1);
+    *m  = (int)(mp < 10 ? mp + 3 : mp - 9);
+    *y  = (int)(yoe + era * 400 + (*m <= 2 ? 1 : 0));
+}
+
+/* Umkehrung: Jahr, Monat, Tag -> Tage seit 1970. */
+static long days_from_civil(int y, int m, int d)
+{
+    long era, yoe, doy, doe;
+
+    y -= (m <= 2) ? 1 : 0;
+    era = (y >= 0 ? y : y - 399) / 400;
+    yoe = y - era * 400;
+    doy = (153 * (m + (m > 2 ? -3 : 9)) + 2) / 5 + d - 1;
+    doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    return era * 146097 + doe - 719468;
+}
+
+void stat_date(ULONG start, int *year, int *month, int *day)
+{
+    civil_from_days((long)((start + 12UL * 3600UL) / 86400UL),
+                    year, month, day);
+}
+
+/* "Date: Tue, 29 Sep 2026 15:10:57 GMT" aus dem Handshake. Die Uhr des
+ * Amiga taugt nicht als Bezug - ein A500 ohne Uhrenkarte glaubt, es sei
+ * 1978. Home Assistant weiss es besser. */
+static ULONG http_date(const char *hdr)
+{
+    static const char MON[] = "JanFebMarAprMayJunJulAugSepOctNovDec";
+    const char *p = strstr(hdr, "\nDate:");
+    int d, y, hh, mm, ss, m;
+    char mon[4];
+
+    if (!p || sscanf(p + 6, " %*3s, %d %3s %d %d:%d:%d",
+                     &d, mon, &y, &hh, &mm, &ss) != 6) {
+        return 0;
+    }
+    mon[3] = '\0';
+    for (m = 0; m < 12; m++) {
+        if (strncmp(MON + m * 3, mon, 3) == 0) {
+            break;
+        }
+    }
+    if (m == 12) {
+        return 0;
+    }
+    return (ULONG)days_from_civil(y, m + 1, d) * 86400UL +
+           (ULONG)(hh * 3600L + mm * 60L + ss);
+}
+
+static int ws_send_all(int sock, const char *buf, long len)
+{
+    long sent = 0, n;
+
+    while (sent < len) {
+        int w = sock_wait(sock, TRUE, AH_IO_SECS);
+
+        if (w == 0) {
+            return fail(AH_ENET, GetStr(MSG_ERR_TIMEOUT));
+        }
+        if (w < 0) {
+            return fail(AH_ENET, GetStr(MSG_ERR_SEND));
+        }
+        n = send(sock, (APTR)(buf + sent), len - sent, 0);
+        if (n < 0 && Errno() == AH_EWOULDBLOCK) {
+            continue;
+        }
+        if (n <= 0) {
+            return fail(AH_ENET, GetStr(MSG_ERR_SEND));
+        }
+        sent += n;
+    }
+    return AH_OK;
+}
+
+static int ws_recv_exact(int sock, char *buf, long len)
+{
+    long got = 0, n;
+
+    while (got < len) {
+        int w = sock_wait(sock, FALSE, AH_IO_SECS);
+
+        if (w == 0) {
+            return fail(AH_ENET, GetStr(MSG_ERR_TIMEOUT));
+        }
+        if (w < 0) {
+            return fail(AH_ENET, GetStr(MSG_ERR_RECV));
+        }
+        n = recv(sock, (APTR)(buf + got), len - got, 0);
+        if (n < 0 && Errno() == AH_EWOULDBLOCK) {
+            continue;
+        }
+        if (n <= 0) {
+            return fail(AH_ENET, GetStr(MSG_ERR_RECV));
+        }
+        got += n;
+    }
+    return AH_OK;
+}
+
+/* Ein Textrahmen, maskiert. Die Maske muss nicht geheim sein - sie soll
+ * nur Zwischenstationen verwirren, nicht Angreifer. */
+static int ws_send_text(int sock, const char *text)
+{
+    long len = (long)strlen(text);
+    char *f = malloc(len + 8);
+    long i, h = 0;
+    int rc;
+    static const UBYTE mask[4] = { 0x37, 0xa5, 0x5c, 0x91 };
+
+    if (!f) {
+        return fail(AH_EMEM, GetStr(MSG_ERR_NOMEM));
+    }
+    f[h++] = (char)0x81;                    /* FIN + Text */
+    if (len < 126) {
+        f[h++] = (char)(0x80 | len);
+    } else {
+        f[h++] = (char)(0x80 | 126);        /* unsere Anfragen < 64 KB */
+        f[h++] = (char)((len >> 8) & 0xff);
+        f[h++] = (char)(len & 0xff);
+    }
+    for (i = 0; i < 4; i++) {
+        f[h++] = (char)mask[i];
+    }
+    for (i = 0; i < len; i++) {
+        f[h + i] = (char)(text[i] ^ mask[i & 3]);
+    }
+    rc = ws_send_all(sock, f, h + len);
+    free(f);
+    return rc;
+}
+
+/* Liest eine ganze Nachricht, auch wenn sie ueber mehrere Rahmen verteilt
+ * ist. Pings werden uebergangen - fuer eine Anfrage von wenigen Sekunden
+ * lohnt sich keine Antwort darauf. */
+static int ws_recv_text(int sock, char **out)
+{
+    char *buf = NULL;
+    long len = 0;
+    int rc;
+
+    *out = NULL;
+    for (;;) {
+        UBYTE h[8];
+        ULONG n;
+        int op, fin, masked;
+
+        if ((rc = ws_recv_exact(sock, (char *)h, 2)) != AH_OK) {
+            break;
+        }
+        /* Alles aus den ersten zwei Bytes jetzt merken - die erweiterte
+         * Laenge wird gleich in denselben Puffer gelesen. */
+        fin    = h[0] & 0x80;
+        op     = h[0] & 0x0f;
+        masked = h[1] & 0x80;
+        n      = h[1] & 0x7f;
+        if (n == 126) {
+            if ((rc = ws_recv_exact(sock, (char *)h, 2)) != AH_OK) {
+                break;
+            }
+            n = ((ULONG)h[0] << 8) | h[1];
+        } else if (n == 127) {
+            if ((rc = ws_recv_exact(sock, (char *)h, 8)) != AH_OK) {
+                break;
+            }
+            if (h[0] | h[1] | h[2] | h[3]) {
+                rc = fail(AH_EHTTP, GetStr(MSG_ERR_BADRESPONSE));
+                break;
+            }
+            n = ((ULONG)h[4] << 24) | ((ULONG)h[5] << 16) |
+                ((ULONG)h[6] << 8) | h[7];
+        }
+        if (masked) {                       /* Server maskiert nicht */
+            rc = fail(AH_EHTTP, GetStr(MSG_ERR_BADRESPONSE));
+            break;
+        }
+        if (op == 8) {                      /* Server macht zu */
+            rc = fail(AH_EHTTP, GetStr(MSG_ERR_BADRESPONSE));
+            break;
+        }
+        if (len + (long)n > WS_MAX_MSG) {
+            rc = fail(AH_EMEM, GetStr(MSG_ERR_NOMEM));
+            break;
+        }
+        {
+            char *nb = realloc(buf, len + n + 1);
+
+            if (!nb) {
+                rc = fail(AH_EMEM, GetStr(MSG_ERR_NOMEM));
+                break;
+            }
+            buf = nb;
+        }
+        if (n && (rc = ws_recv_exact(sock, buf + len, (long)n)) != AH_OK) {
+            break;
+        }
+        if (op == 9 || op == 10) {          /* Ping/Pong: verwerfen */
+            continue;
+        }
+        len += (long)n;
+        if (fin) {
+            buf[len] = '\0';
+            *out = buf;
+            return AH_OK;
+        }
+    }
+    free(buf);
+    return rc;
+}
+
+/* Zahl aus JSON in Hundertsteln, ohne FPU: "97.00000000000023" -> 9700,
+ * "-0.5" -> -50, "1.2e-05" -> 0, "null" -> ungueltig. Gerundet wird an der
+ * dritten Nachkommastelle. */
+static BOOL json_hundredths(const char *s, long *out)
+{
+    long ip = 0, frac = 0;
+    int fd = 0, third = 0, neg = 0, ex = 0, exneg = 0;
+
+    while (*s == ' ') {
+        s++;
+    }
+    if (strncmp(s, "null", 4) == 0) {
+        return FALSE;
+    }
+    if (*s == '-') {
+        neg = 1;
+        s++;
+    }
+    if (!isdigit((unsigned char)*s)) {
+        return FALSE;
+    }
+    while (isdigit((unsigned char)*s)) {
+        if (ip < 20000000L) {               /* 200000 kWh reichen */
+            ip = ip * 10 + (*s - '0');
+        }
+        s++;
+    }
+    if (*s == '.') {
+        s++;
+        while (isdigit((unsigned char)*s)) {
+            if (fd < 2) {
+                frac = frac * 10 + (*s - '0');
+            } else if (fd == 2) {
+                third = *s - '0';
+            }
+            fd++;
+            s++;
+        }
+    }
+    while (fd < 2) {
+        frac *= 10;
+        fd++;
+    }
+    *out = ip * 100 + frac + (third >= 5 ? 1 : 0);
+
+    if (*s == 'e' || *s == 'E') {
+        s++;
+        if (*s == '-' || *s == '+') {
+            exneg = (*s == '-');
+            s++;
+        }
+        while (isdigit((unsigned char)*s)) {
+            ex = ex * 10 + (*s - '0');
+            s++;
+        }
+        while (ex-- > 0) {
+            if (exneg) {
+                *out /= 10;
+            } else if (*out < 20000000L) {
+                *out *= 10;
+            }
+        }
+    }
+    if (neg) {
+        *out = -*out;
+    }
+    return TRUE;
+}
+
+/* "start" kommt in neueren Home-Assistant-Versionen als Millisekunden, in
+ * aelteren als ISO-Zeit. Beides wird verstanden. Millisekunden passen nicht
+ * in 32 Bit - also die letzten drei Ziffern einfach abschneiden. */
+static ULONG json_start(const char *s)
+{
+    char dig[24];
+    int n = 0;
+
+    while (*s == ' ') {
+        s++;
+    }
+    if (*s == '"') {
+        int y, mo, d, hh = 0, mi = 0, ss = 0;
+
+        if (sscanf(s + 1, "%d-%d-%dT%d:%d:%d", &y, &mo, &d, &hh, &mi, &ss) < 3) {
+            return 0;
+        }
+        return (ULONG)days_from_civil(y, mo, d) * 86400UL +
+               (ULONG)(hh * 3600L + mi * 60L + ss);
+    }
+    while (isdigit((unsigned char)*s) && n < (int)sizeof(dig) - 1) {
+        dig[n++] = *s++;
+    }
+    dig[n] = '\0';
+    if (n > 10) {
+        dig[n - 3] = '\0';                  /* ms -> s */
+    }
+    return (ULONG)strtoul(dig, NULL, 10);
+}
+
+int ha_statistics(struct Prefs *p, const char *entity_id, int period,
+                  struct StatPoint *out, int max, int *count)
+{
+    struct hostent *he;
+    struct sockaddr_in sa;
+    in_addr_t addr;
+    int sock, rc, i, y, m, d;
+    char hdr[1024];
+    char req[400];
+    char *msg = NULL;
+    const char *q;
+    ULONG now, from;
+    long hl = 0;
+
+    *count = 0;
+    if (max <= 0) {
+        return AH_OK;
+    }
+
+    SocketBase = OpenLibrary("bsdsocket.library", 4);
+    if (!SocketBase) {
+        return fail(AH_ENET, GetStr(MSG_ERR_NOSOCKET));
+    }
+    memset(&sa, 0, sizeof(sa));
+    sa.sin_family = AF_INET;
+    sa.sin_port = htons((unsigned short)p->port);
+    addr = inet_addr((STRPTR)p->host);
+    if (addr != INADDR_NONE) {
+        sa.sin_addr.s_addr = addr;
+    } else {
+        he = gethostbyname((UBYTE *)p->host);
+        if (!he) {
+            CloseLibrary(SocketBase);
+            SocketBase = NULL;
+            return fail(AH_ENET, GetStr(MSG_ERR_NORESOLVE));
+        }
+        memcpy(&sa.sin_addr, he->h_addr_list[0], he->h_length);
+    }
+    sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock < 0) {
+        CloseLibrary(SocketBase);
+        SocketBase = NULL;
+        return fail(AH_ENET, GetStr(MSG_ERR_SOCKET));
+    }
+    rc = connect_timeout(sock, &sa);
+    if (rc != AH_OK) {
+        goto done;
+    }
+
+    /* Handshake. Der Schluessel ist fest - pruefen muesste ihn nur ein
+     * misstrauischer Client, und der sind wir nicht. */
+    sprintf(req,
+            "GET /api/websocket HTTP/1.1\r\n"
+            "Host: %s:%d\r\n"
+            "Upgrade: websocket\r\n"
+            "Connection: Upgrade\r\n"
+            "Sec-WebSocket-Key: QW1pSG9tZWFzc2lzdCEhIQ==\r\n"
+            "Sec-WebSocket-Version: 13\r\n"
+            "\r\n", p->host, p->port);
+    if ((rc = ws_send_all(sock, req, (long)strlen(req))) != AH_OK) {
+        goto done;
+    }
+    /* Kopf bis zur Leerzeile, Byte fuer Byte - danach beginnen die Rahmen,
+     * und davon darf nichts verschluckt werden. */
+    while (hl < (long)sizeof(hdr) - 1) {
+        if ((rc = ws_recv_exact(sock, hdr + hl, 1)) != AH_OK) {
+            goto done;
+        }
+        hl++;
+        if (hl >= 4 && memcmp(hdr + hl - 4, "\r\n\r\n", 4) == 0) {
+            break;
+        }
+    }
+    hdr[hl] = '\0';
+    if (strncmp(hdr, "HTTP/1.1 101", 12) != 0) {
+        rc = fail(AH_EHTTP, GetStr(MSG_ERR_BADRESPONSE));
+        goto done;
+    }
+    now = http_date(hdr);
+
+    /* auth_required -> auth -> auth_ok */
+    if ((rc = ws_recv_text(sock, &msg)) != AH_OK) {
+        goto done;
+    }
+    free(msg);
+    msg = NULL;
+    {
+        char *auth = malloc(strlen(p->token) + 64);
+
+        if (!auth) {
+            rc = fail(AH_EMEM, GetStr(MSG_ERR_NOMEM));
+            goto done;
+        }
+        sprintf(auth, "{\"type\":\"auth\",\"access_token\":\"%s\"}", p->token);
+        rc = ws_send_text(sock, auth);
+        free(auth);
+        if (rc != AH_OK) {
+            goto done;
+        }
+    }
+    if ((rc = ws_recv_text(sock, &msg)) != AH_OK) {
+        goto done;
+    }
+    if (!strstr(msg, "\"auth_ok\"")) {
+        rc = fail(AH_EHTTP, GetStr(MSG_ERR_TOKEN401));
+        goto done;
+    }
+    free(msg);
+    msg = NULL;
+
+    /* Ab wann: grosszuegig einen Zeitraum mehr als verlangt, uebrig bleiben
+     * am Ende die letzten 'max'. Ohne Datum aus dem Handshake ein Jahr
+     * zurueck - lieber zu viel als eine leere Antwort. */
+    if (now == 0) {
+        from = 0;
+    } else if (period == AH_PERIOD_MONTH) {
+        from = now - (ULONG)(max + 1) * 31UL * 86400UL;
+    } else {
+        from = now - (ULONG)(max + 1) * 86400UL;
+    }
+    if (from == 0) {
+        y = 2000; m = 1; d = 1;
+    } else {
+        civil_from_days((long)(from / 86400UL), &y, &m, &d);
+    }
+    sprintf(req,
+            "{\"id\":1,\"type\":\"recorder/statistics_during_period\","
+            "\"start_time\":\"%04d-%02d-%02dT00:00:00Z\","
+            "\"statistic_ids\":[\"%.96s\"],"
+            "\"period\":\"%s\",\"types\":[\"change\"]}",
+            y, m, d, entity_id,
+            period == AH_PERIOD_MONTH ? "month" : "day");
+    if ((rc = ws_send_text(sock, req)) != AH_OK) {
+        goto done;
+    }
+    if ((rc = ws_recv_text(sock, &msg)) != AH_OK) {
+        goto done;
+    }
+
+    if (!strstr(msg, "\"success\":true")) {
+        /* Home Assistant sagt, was nicht passt - auf Englisch, aber
+         * genauer als jede eigene Meldung. */
+        const char *e = strstr(msg, "\"message\":\"");
+        char why[160];
+
+        if (e) {
+            e += 11;
+            for (i = 0; e[i] && e[i] != '"' && i < (int)sizeof(why) - 1; i++) {
+                why[i] = e[i];
+            }
+            why[i] = '\0';
+            rc = fail(AH_EHTTP, why);
+        } else {
+            rc = fail(AH_EHTTP, GetStr(MSG_ERR_BADRESPONSE));
+        }
+        goto done;
+    }
+
+    /* [{"start":..,"end":..,"change":..}, ...] - die Eintraege der Reihe
+     * nach. Mehr als 'max' werden es kaum; wenn doch, rutschen die aeltesten
+     * vorne heraus. */
+    q = msg;
+    while ((q = strstr(q, "\"start\":")) != NULL) {
+        const char *next = strstr(q + 8, "\"start\":");
+        const char *c = strstr(q, "\"change\":");
+        struct StatPoint pt;
+
+        pt.start = json_start(q + 8);
+        pt.valid = FALSE;
+        pt.value = 0;
+        if (c && (!next || c < next)) {
+            pt.valid = json_hundredths(c + 9, &pt.value);
+        }
+        if (*count == max) {
+            memmove(out, out + 1, (size_t)(max - 1) * sizeof(*out));
+            (*count)--;
+        }
+        out[(*count)++] = pt;
+        q += 8;
+    }
+    rc = AH_OK;
+
+done:
+    free(msg);
+    CloseSocket(sock);
+    CloseLibrary(SocketBase);
+    SocketBase = NULL;
+    return rc;
+}

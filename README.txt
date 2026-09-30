@@ -1,8 +1,8 @@
-AmiHomeassist 0.8
+AmiHomeassist 0.9
 =================
 
   English below, deutsche Fassung weiter unten.
-  Deutsche Fassung ab "AmiHomeassist 0.8 - Deutsch".
+  Deutsche Fassung ab "AmiHomeassist 0.9 - Deutsch".
 
 
 ENGLISH
@@ -90,9 +90,15 @@ WIDGET KINDS
   Thermostat  climate - room and target temperature, warmer, colder,
               and the operating mode
   Text        a caption
+  History     sensor - bar chart of the last 30 days or 12 months,
+              from Home Assistant's long-term statistics
 
   When you add a device the program suggests a kind, from its domain
   and device class. The editor lets you change it.
+
+  History only works for sensors that keep long-term statistics, that
+  is sensors with a state_class - energy meters in kWh, for instance.
+  Anything else gives an empty chart.
 
 
 LANGUAGES
@@ -151,6 +157,9 @@ FROM THE SHELL
   AmiHomeassistCLI ON=light.kueche
   AmiHomeassistCLI OFF=switch.beamer
   AmiHomeassistCLI TOGGLE=light.tisch
+  AmiHomeassistCLI HISTORY=sensor.energy          last 30 days
+  AmiHomeassistCLI HISTORY=sensor.energy MONTH    last 12 months
+  AmiHomeassistCLI HISTORY=sensor.energy COUNT=7  last 7 days
 
   Setting up works without the interface too:
 
@@ -217,13 +226,13 @@ BUILDING IT YOURSELF
   into locale_strings.h. That header is included ready-made, so a build
   works without Python.
 
-  Tested on an A500 with PiStorm (Emu68), OS 3.2.3, MUI 3.8. A real
-  68030 is still to come.
+  Tested on an A500 with PiStorm (Emu68) and on an A500 with a
+  Terrible Fire TF536 (68030, no FPU), both OS 3.2, MUI 3.8.
 
 
 ================================================================
 
-AmiHomeassist 0.8 - Deutsch
+AmiHomeassist 0.9 - Deutsch
 ===========================
 
 Home Assistant vom Amiga aus: Lampen, Steckdosen, Rollaeden und
@@ -314,9 +323,15 @@ DARSTELLUNGSARTEN
   Thermostat  climate - Ist- und Solltemperatur, waermer, kaelter und
               die Betriebsart
   Text        eine Zwischenueberschrift
+  Verlauf     sensor - Balkendiagramm der letzten 30 Tage oder 12
+              Monate, aus der Langzeitstatistik von Home Assistant
 
   Beim Hinzufuegen schlaegt das Programm eine Art vor, aus Domain und
   Geraeteklasse. Im Editor laesst sie sich aendern.
+
+  Verlauf geht nur mit Sensoren, die eine Langzeitstatistik fuehren,
+  also mit einer state_class - Stromzaehler in kWh zum Beispiel. Alles
+  andere ergibt ein leeres Diagramm.
 
 
 SPRACHEN
@@ -380,6 +395,9 @@ AUS DER SHELL
   AmiHomeassistCLI ON=light.kueche
   AmiHomeassistCLI OFF=switch.beamer
   AmiHomeassistCLI TOGGLE=light.tisch
+  AmiHomeassistCLI HISTORY=sensor.strom           letzte 30 Tage
+  AmiHomeassistCLI HISTORY=sensor.strom MONTH     letzte 12 Monate
+  AmiHomeassistCLI HISTORY=sensor.strom COUNT=7   letzte 7 Tage
 
   Einrichten geht auch ohne Oberflaeche:
 
@@ -456,6 +474,9 @@ SELBER UEBERSETZEN
   locale.py macht aus strings.cd und catalogs/*.ct die Kataloge und die
   Datei locale_strings.h. Diese Datei liegt fertig bei, ein Bau kommt
   also ohne Python aus.
+
+  Getestet auf einem A500 mit PiStorm (Emu68) und auf einem A500 mit
+  Terrible Fire TF536 (68030, ohne FPU), beide OS 3.2, MUI 3.8.
 
 
   Hinweis zur Fehlersuche: eine ausfuehrliche Beschreibung der Fallen,

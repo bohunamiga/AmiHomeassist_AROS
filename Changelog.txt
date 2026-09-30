@@ -1,6 +1,40 @@
 AmiHomeassist - was sich geaendert hat
 =====================================
 
+0.9   30.09.2026
+
+  Verlaeufe. Neue Darstellungsart fuer Zaehler wie den Stromverbrauch:
+  ein Balkendiagramm der letzten 30 Tage oder 12 Monate, so wie die
+  Statistik-Karten in Home Assistant. Die Werte kommen aus der
+  Langzeitstatistik von Home Assistant, die es nur ueber die
+  WebSocket-Schnittstelle gibt - AmiHomeassist spricht dafuer jetzt ein
+  kleines Stueck WebSocket. Eine Abfrage ist 1 bis 3 KB gross und
+  dauert auf einem 68030 mit plipbox eine halbe Sekunde. Neu geholt wird
+  beim Start, bei "Aktualisieren" und alle zehn Minuten.
+
+  Gezeichnet wird von einer eigenen MUI-Klasse, ohne Fremdklasse und
+  ohne FPU. Das Raster richtet sich nach der verfuegbaren Hoehe, die
+  Beschriftung nach der Breite.
+
+  Im Editor stehen dafuer "Verlauf (Tage)" und "Verlauf (Monate)" bei
+  den Darstellungsarten. Die Zahl der Balken laesst sich in der
+  Dashboard-Datei aendern.
+
+  Die Shell-Fassung zeigt dieselben Werte als Liste:
+      AmiHomeassistCLI HISTORY=sensor.verbrauch MONTH
+
+  Einfrieren beim Beenden behoben. 0.8 hatte seinen Stapel ueber die
+  C-Bibliothek umgeschaltet; von der Workbench gestartet fror der Amiga
+  beim Beenden hart ein, ohne Guru. Jetzt schaltet das Programm selbst
+  um und vor dem Ende auch selbst zurueck. Wer 0.8 benutzt, sollte
+  wechseln.
+
+  Editor und Hauptfenster zeigen dieselbe Seite: der Editor oeffnet dort,
+  wo man gerade ist, und nach dem Schliessen steht man dort, wo man
+  zuletzt bearbeitet hat. Auch "Aktualisieren" springt nicht mehr an den
+  Anfang.
+
+
 0.8   29.09.2026
 
   Aufgeraeumte Seiten. Die Beschriftungen stehen rechtsbuendig mit

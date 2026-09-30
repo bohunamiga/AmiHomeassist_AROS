@@ -166,7 +166,7 @@ MSG_FILE_DASH_HEAD
 MSG_FILE_DASH_NOTE
 ; Scritto dall'editor. Modificabile a mano, se serve:\n
 MSG_FILE_DASH_KINDS
-; Tipi: toggle lamp value gauge cover text\n\n
+; Tipi: toggle lamp value gauge cover text climate\n;   chart <entity> <label> <0 = giorni, 1 = mesi> <barre>\n\n
 MSG_ED_TITLE
 Modifica pannelli
 MSG_ED_ADDDEVICE
@@ -333,3 +333,17 @@ MSG_UNK_HIDE
 nascondi
 MSG_FILE_PREFS_UNKNOWN
 \n; Valori sconosciuti o non disponibili: 0 mostra, 1 in grigio, 2 nascondi\n
+MSG_CLI_NOHISTORY
+Nessuna statistica per questo sensore. Il nome è giusto, e ha una state_class?\n
+MSG_KIND_CHART
+Andamento (giorni)
+MSG_GROUP_CHARTS
+Andamento
+MSG_CHART_MONTHS
+gen feb mar apr mag giu lug ago set ott nov dic
+MSG_CHART_DAY
+%ld %s
+MSG_CHART_EMPTY
+Nessun dato
+MSG_KIND_CHART_MONTH
+Andamento (mesi)

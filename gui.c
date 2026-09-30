@@ -43,6 +43,8 @@ typedef ULONG IPTR;
 #include "dash.h"
 #include "icons.h"
 #include "edit.h"
+#include "chart.h"
+#include "stack.h"
 
 extern struct DosLibrary *DOSBase;
 
@@ -72,19 +74,6 @@ static struct Catalog  g_cat;
 static struct Dash     g_dash;
 static BOOL            g_have_prefs = FALSE;
 
-/* Die Workbench gibt einem Programm ohne Stack-Eintrag im Icon nur 4 KB.
- * MUI und NList brauchen allein mehr. Auf einem A500 mit TF536 lief der
- * Stapel darueber und zerstoerte fremden Speicher: erst Guru 8000 0003
- * (Sprung an eine ungerade Adresse), dann 0100 000F (Speicher doppelt
- * freigegeben). Auf dem PiStorm fiel es nie auf. libnix schaltet beim
- * Start auf diese Groesse um, gleich was im Icon oder in der Shell steht. */
-unsigned long __stack = 65536;
-
-/* Die Variable allein genuegt nicht: der Umschaltcode (swapstack.o in
- * libnix) kommt nur mit, wenn ihn etwas anfasst - sonst wird __stack
- * stillschweigend ignoriert. Dieser Zeiger zieht ihn herein. */
-extern void __stkinit(void);
-void (*const ah_force_stkswap)(void) = __stkinit;
 
 /* Ein Bedienelement auf einer Seite, mit dem, was zum Nachfuehren noetig ist. */
 struct WUI {
@@ -338,6 +327,8 @@ static Object *make_image_ex(const struct IconDef *def, const ULONG *colors,
                              BOOL clickable);
 static Object *make_image(const struct IconDef *def, const ULONG *colors);
 static void unknown_apply(BOOL in_change);
+static void charts_refresh(BOOL fetch);
+static void chart_cache_clear(void);
 
 /* Der Schalter: zwei gezeichnete Bilder in einer Seitengruppe. Umschalten
  * heisst dann nur, die sichtbare Seite zu wechseln - kein Austauschen von
@@ -419,7 +410,7 @@ static void lblfix_for_page(const struct Page *p, char *out)
             const struct Widget *w = &p->g[j].w[k];
             size_t n = strlen(w->label);
 
-            if (w->kind != WK_TEXT && n > best) {
+            if (w->kind != WK_TEXT && w->kind != WK_CHART && n > best) {
                 best = n;
                 sprintf(out, "M%s:", w->label);
             }
@@ -541,6 +532,26 @@ static Object *build_widget(struct Widget *w, BOOL pad)
     }
 
     switch (w->kind) {
+        case WK_CHART:
+            /* Das Diagramm braucht die ganze Breite - die Beschriftung
+             * steht darueber statt links daneben. Die Werte kommen erst
+             * mit charts_refresh(), bis dahin zeigt es "keine Daten". */
+            ctl = chart_new();
+            if (!ctl) {
+                return NULL;
+            }
+            row = MUI_NewObject(MUIC_Group,
+                MUIA_Group_Child, MUI_NewObject(MUIC_Text,
+                    MUIA_Text_Contents, w->label,
+                    MUIA_Text_PreParse, "\33l",
+                    TAG_DONE),
+                MUIA_Group_Child, ctl,
+                TAG_DONE);
+            if (row) {
+                wui_add(w, e, ctl, NULL, NULL);
+            }
+            return row;
+
         case WK_TOGGLE: {
             Object *sym;
 
@@ -818,6 +829,7 @@ static void pages_build(void)
     }
     unknown_apply(TRUE);
     DoMethod(grp_pages, MUIM_Group_ExitChange);
+    charts_refresh(FALSE);
 
     /* Bedienelemente melden sich mit ihrer laufenden Nummer zurueck. */
     for (i = 0; i < g_wui_count; i++) {
@@ -832,6 +844,30 @@ static void pages_build(void)
             }
         }
     }
+}
+
+/* Die Seite, die gerade zu sehen ist. */
+static int main_page(void)
+{
+    LONG n = 0;
+
+    get(lst_pages, MUIA_NList_Active, &n);
+    return (n >= 0 && n < g_dash.count) ? (int)n : 0;
+}
+
+/* Zeigt Seite n, in der Seitenleiste und rechts. Beides direkt, nicht ueber
+ * die Benachrichtigung der Liste - die kaeme erst nach dem naechsten
+ * Ereignis, und bis dahin stuende rechts die falsche Seite. */
+static void show_page(int n)
+{
+    if (g_dash.count == 0) {
+        return;
+    }
+    if (n < 0 || n >= g_dash.count) {
+        n = 0;
+    }
+    set(lst_pages, MUIA_NList_Active, (LONG)n);
+    set(grp_pages, MUIA_Group_ActivePage, (LONG)n);
 }
 
 static void sidebar_fill(void)
@@ -851,9 +887,6 @@ static void sidebar_fill(void)
                  MUIV_NList_Insert_Bottom);
     }
     set(lst_pages, MUIA_NList_Quiet, FALSE);
-    if (g_dash.count) {
-        set(lst_pages, MUIA_NList_Active, 0);
-    }
 }
 
 /* ------------------------------------------------------------------ */
@@ -1024,6 +1057,86 @@ static int poll_secs(void)
         return NET_BACKOFF_SECS;
     }
     return g_prefs.poll;
+}
+
+/* Diagramme: je eines eine WebSocket-Anfrage, auf dem TF536 rund eine
+ * halbe Sekunde. Die Werte aendern sich nur langsam - deshalb nicht im Takt
+ * der Zustaende, sondern beim Aufbau, bei "Aktualisieren" und alle zehn
+ * Minuten. */
+#define CHART_REFRESH_SECS 600
+static long g_chart_age = 0;
+
+/* Zwischenspeicher: der Editor baut bei jeder Aenderung alle Seiten neu,
+ * und damit neue Diagrammobjekte. Die bekommen ihre Werte von hier, statt
+ * jedes Mal Home Assistant zu fragen. */
+#define CHART_CACHE 16
+struct ChartCache {
+    char id[ID_LEN];
+    int  period, count, n;
+    struct StatPoint pt[CHART_MAX];
+};
+static struct ChartCache g_cc[CHART_CACHE];
+static int g_cc_count = 0;
+
+static void chart_cache_clear(void)
+{
+    g_cc_count = 0;
+}
+
+static struct ChartCache *chart_cache_get(const struct Widget *w, BOOL fetch)
+{
+    struct ChartCache *c = NULL;
+    int i;
+
+    for (i = 0; i < g_cc_count; i++) {
+        if (g_cc[i].period == (int)w->min && g_cc[i].count == (int)w->max &&
+                strcmp(g_cc[i].id, w->id) == 0) {
+            c = &g_cc[i];
+            break;
+        }
+    }
+    if (c && !fetch) {
+        return c;
+    }
+    if (!c) {
+        /* Voll? Dann den aeltesten Eintrag wiederverwenden. */
+        if (g_cc_count < CHART_CACHE) {
+            c = &g_cc[g_cc_count++];
+        } else {
+            memmove(&g_cc[0], &g_cc[1], (CHART_CACHE - 1) * sizeof(g_cc[0]));
+            c = &g_cc[CHART_CACHE - 1];
+        }
+        strcpy(c->id, w->id);
+        c->period = (int)w->min;
+        c->count  = (int)w->max;
+        c->n = 0;
+    }
+    if (ha_statistics(&g_prefs, w->id, c->period, c->pt, c->count,
+                      &c->n) != AH_OK) {
+        say(txt_status, ha_last_error());
+        c->n = 0;
+    }
+    return c;
+}
+
+/* fetch = TRUE holt alles neu, sonst nur, was noch nicht im Speicher ist. */
+static void charts_refresh(BOOL fetch)
+{
+    int i;
+
+    if (fetch) {
+        g_chart_age = 0;
+    }
+    for (i = 0; i < g_wui_count; i++) {
+        struct WUI *u = &g_wui[i];
+        struct ChartCache *c;
+
+        if (u->w->kind != WK_CHART || !u->ctl) {
+            continue;
+        }
+        c = chart_cache_get(u->w, fetch);
+        chart_set(u->ctl, c->pt, c->n, c->period, u->e ? u->e->unit : "");
+    }
 }
 
 static void refresh_states(void)
@@ -1369,9 +1482,11 @@ static Object *button(const char *label)
 static void reload_all(BOOL fetch)
 {
     int found = 0;
+    int page = main_page();
 
     if (fetch) {
         say(txt_status, GetStr(MSG_STATUS_QUERYING));
+        chart_cache_clear();        /* "Aktualisieren" holt auch Diagramme neu */
         selection_remember();
         {
             int before = g_cat.count;
@@ -1399,12 +1514,14 @@ static void reload_all(BOOL fetch)
     }
     dash_mark_used(&g_dash, &g_cat);
 
+    /* "Aktualisieren" bleibt auf der Seite, auf der man war. */
     sidebar_fill();
     pages_build();
+    show_page(page);
     status_summary();
 }
 
-int main(void)
+static int app_main(void)
 {
     ULONG sigs = 0;
     ULONG id;
@@ -1438,6 +1555,11 @@ int main(void)
     UNK_TEXT[AH_UNK_DIM]  = GetStr(MSG_UNK_DIM);
     UNK_TEXT[AH_UNK_HIDE] = GetStr(MSG_UNK_HIDE);
     UNK_TEXT[3] = NULL;
+
+    /* Vor dem Fenster: build_widget legt Diagramme erst beim Laden der
+     * Dashboards an, aber die Klasse muss dann schon da sein. Fehlt sie,
+     * zeigen Diagrammzeilen nur ihre Beschriftung - der Rest laeuft. */
+    chart_class_open();
 
     app = MUI_NewObject(MUIC_Application,
         MUIA_Application_Title,       "AmiHomeassist",
@@ -1659,14 +1781,24 @@ int main(void)
             BOOL changed = FALSE;
 
             if (editor_handle(id, &changed)) {
+                int ep = editor_page();
+
                 if (changed) {
                     /* Der Editor hat das Modell veraendert - Seitenleiste und
                      * Seiten muessen neu entstehen, und der Sparbetrieb muss
                      * wissen, was jetzt gebraucht wird. */
+                    int keep = main_page();
+
                     dash_mark_used(&g_dash, &g_cat);
                     sidebar_fill();
                     pages_build();
+                    show_page(ep >= 0 ? ep : keep);
                     status_summary();
+                } else if (ep >= 0 && ep != main_page()) {
+                    /* Das Hauptfenster zeigt, was man im Editor gewaehlt
+                     * hat - so steht man nach "Schliessen" dort, wo man
+                     * zuletzt gearbeitet hat. */
+                    show_page(ep);
                 }
                 if (sigs) {
                     sigs = Wait(sigs | SIGBREAKF_CTRL_C | g_tsig);
@@ -1795,12 +1927,13 @@ int main(void)
                     dash_mark_used(&g_dash, &g_cat);
                     sidebar_fill();
                     pages_build();
+                    show_page(0);           /* alles neu - von vorn */
                     status_summary();
                     set(win_sel, MUIA_Window_Open, FALSE);
                     break;
 
                 case ID_OPEN_EDIT:
-                    editor_open();
+                    editor_open(main_page());
                     break;
 
                 case ID_OPEN_PREFS:
@@ -1836,6 +1969,10 @@ int main(void)
                 get(win_sel, MUIA_Window_Open, &selopen);
                 if (g_have_prefs && !selopen) {
                     refresh_states();
+                    g_chart_age += poll_secs();
+                    if (g_chart_age >= CHART_REFRESH_SECS) {
+                        charts_refresh(TRUE);
+                    }
                 }
                 timer_start(poll_secs());
             }
@@ -1848,10 +1985,35 @@ int main(void)
     timer_close();
     set(win, MUIA_Window_Open, FALSE);
     MUI_DisposeObject(app);
+    chart_class_close();            /* erst nach dem letzten Objekt */
+
+    /* Die Bilder der Listen gehoeren uns, nicht NList (MUIM_NList_UseImage:
+     * "must be valid until the NList object is disposed"). Die Listen sind
+     * mit app gegangen - jetzt duerfen die Bilder hinterher. */
+    {
+        int i;
+
+        for (i = 0; i < MDI_COUNT; i++) {
+            if (img_side[i]) {
+                MUI_DisposeObject(img_side[i]);
+            }
+        }
+        for (i = 0; i < IMG_COUNT; i++) {
+            if (img_sel[i]) {
+                MUI_DisposeObject(img_sel[i]);
+            }
+        }
+    }
     dash_free(&g_dash);
     catalog_free(&g_cat);
     CloseLibrary(MUIMasterBase);
     CloseLibrary((struct Library *)IntuitionBase);
     locale_close();
     return 0;
+}
+
+/* Eigener Stapel - siehe stack.c, warum nicht mehr ueber libnix. */
+int main(void)
+{
+    return run_with_stack(app_main, 65536);
 }
