@@ -34,7 +34,8 @@ __attribute__((noinline))
 int run_with_stack(int (*fn)(void), ULONG need)
 {
     struct Task *me = FindTask(NULL);
-    ULONG have = (ULONG)me->tc_SPUpper - (ULONG)me->tc_SPLower;
+    ULONG have = (ULONG)((UBYTE *)me->tc_SPUpper -
+                         (UBYTE *)me->tc_SPLower);
 
     if (have >= need) {
         return fn();
@@ -45,8 +46,8 @@ int run_with_stack(int (*fn)(void), ULONG need)
     }
     g_fn = fn;
     g_sss.stk_Lower   = g_mem;
-    g_sss.stk_Upper   = (ULONG)g_mem + need;
-    g_sss.stk_Pointer = (APTR)g_sss.stk_Upper;
+    g_sss.stk_Upper   = (UBYTE *)g_mem + need;
+    g_sss.stk_Pointer = g_sss.stk_Upper;
 
     StackSwap(&g_sss);
     g_rc = g_fn();
