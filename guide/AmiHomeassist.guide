@@ -1,0 +1,790 @@
+@database AmiHomeassist.guide
+@$VER: AmiHomeassist.guide 0.9.1 (30.9.2026)
+@author radi777
+@wordwrap
+@index Main
+
+@node Main "AmiHomeassist 0.9.1"
+
+                          @{b}AmiHomeassist 0.9.1@{ub}
+
+              Home Assistant from a real Amiga - with MUI
+
+                 Home Assistant vom echten Amiga - mit MUI
+
+
+       @{"  English  " link EN_Contents}          @{"  Deutsch  " link DE_Contents}
+
+
+Pictures open in their own window. They need the ILBM datatype, which
+every Workbench 3.x has, and must stay in the Pics drawer next to this
+guide.
+
+Bilder öffnen sich in einem eigenen Fenster. Sie brauchen den
+ILBM-Datatype, den jede Workbench 3.x hat, und müssen in der Schublade
+Pics neben dieser Anleitung liegen.
+@endnode
+
+
+@node EN_Contents "AmiHomeassist - Contents"
+@{b}Contents@{ub}
+
+   @{" What it is             " link EN_Intro}
+   @{" What you need          " link EN_Need}
+   @{" Setting up             " link EN_Setup}
+   @{" The main window        " link EN_Window}
+   @{" Widget kinds           " link EN_Kinds}
+   @{" Choosing devices       " link EN_Select}
+   @{" The editor             " link EN_Editor}
+   @{" History charts         " link EN_History}
+   @{" Settings               " link EN_Settings}
+   @{" Languages              " link EN_Languages}
+   @{" From the shell         " link EN_Shell}
+   @{" Files and backups      " link EN_Files}
+   @{" Tips and trouble       " link EN_Tips}
+   @{" Credits and rights     " link EN_Credits}
+   @{" Version history        " link EN_Versions}
+
+   @{" Deutsch                " link DE_Contents}
+@endnode
+
+
+@node EN_Intro "What it is"
+@{b}What it is@{ub}
+
+AmiHomeassist shows your smart home on the Amiga: lights, sockets,
+blinds, thermostats, windows, sensors and energy meters from Home
+Assistant, arranged on dashboards of your own.
+
+On the left a sidebar with one page per room (or whatever you like), on
+the right the contents of the chosen page in framed groups. One click on
+a switch flips the device. States are polled, so changes made elsewhere
+show up by themselves.
+
+A large Home Assistant easily has 900 entities; you want a dozen or two
+on the Amiga. You pick them, and an editor lets you arrange pages,
+groups and devices freely - by mouse, with drag and drop.
+
+@{" Picture: main window " link "Pics/main.ilbm/main"}
+
+AmiHomeassist is careful with the wire: the full device catalogue is
+fetched once, after that only the states of the devices on screen. In a
+setup with 941 entities that is 1.4 KB per poll instead of 55 KB.
+@endnode
+
+
+@node EN_Need "What you need"
+@{b}What you need@{ub}
+
+ - AmigaOS 2.0 or newer, 68020 or better. No FPU needed.
+
+ - MUI 3.8 or newer.
+
+ - The NList classes NList.mcc and NListview.mcc. MUI does NOT ship
+   them. Get them from Aminet (dev/mui/MCC_NList.lha) or from
+   https://github.com/amiga-mui/nlist and put them in MUI:Libs/MUI.
+   Check with:  Version MUI:Libs/MUI/NList.mcc
+
+ - A TCP/IP stack with bsdsocket.library: Roadshow, AmiTCP, Miami ...
+
+ - Home Assistant reachable over plain http. https is not supported
+   and is refused with a clear message.
+
+ - A long-lived access token from Home Assistant: your profile, tab
+   Security, at the bottom under "Long-lived access tokens".
+
+Tested on an A500 with a Terrible Fire TF536 (68030, no FPU, plipbox)
+and on an A500 with PiStorm, both with OS 3.2 and MUI 3.8.
+@endnode
+
+
+@node EN_Setup "Setting up"
+@{b}Setting up@{ub}
+
+ 1. Copy the AmiHomeassist drawer wherever you like.
+
+ 2. Start AmiHomeassist. On the first run the @{"settings" link EN_Settings}
+    window opens by itself. Enter address and token, then Save.
+
+ 3. The device picker opens with a suggestion. It is only a guess -
+    look it over, adjust, then Apply. One page per room is created.
+    See @{"Choosing devices" link EN_Select}.
+
+ 4. Want it different? Use "Edit ..." - see @{"The editor" link EN_Editor}.
+
+The program sets up its own stack of 64 KB, so the stack entry in the
+icon does not matter.
+@endnode
+
+
+@node EN_Window "The main window"
+@{b}The main window@{ub}
+
+@{" Picture: main window " link "Pics/main.ilbm/main"}
+
+Left: the logo with the version, below it your pages. Click a page to
+show it on the right.
+
+Right: the page, in framed groups. Labels stand right-aligned with a
+colon in front of their value, so everything lines up. Switches flip
+on a click, blinds and thermostats have buttons.
+
+At the bottom:
+
+   Refresh      fetches everything anew - catalogue, pages, charts
+   Select ...   which devices the program knows, see @{"Choosing devices" link EN_Select}
+   Edit ...     arrange pages, see @{"The editor" link EN_Editor}
+   Settings ... address, token, interval, see @{"Settings" link EN_Settings}
+
+The status line shows how many devices sit on how many pages, or what
+went wrong.
+
+On start the window appears only when all pages are built - on a slow
+Amiga that takes two or three seconds.
+@endnode
+
+
+@node EN_Kinds "Widget kinds"
+@{b}Widget kinds@{ub}
+
+   Switch        light and switch - the toggle you click
+   Indicator     binary_sensor - window open or closed
+   Number        sensor with its unit
+   Bar           sensor with a fixed range, per cent or watts
+   Blind         cover - up, stop, down, and the position
+   Thermostat    climate - current and target temperature, colder,
+                 warmer, operating mode
+   Text          a caption
+   History       bar chart of the last 30 days or 12 months, see
+                 @{"History charts" link EN_History}
+
+When you add a device the program suggests a kind from its domain and
+device class. The editor lets you change it.
+@endnode
+
+
+@node EN_Select "Choosing devices"
+@{b}Choosing devices@{ub}
+
+"Select ..." in the main window lists everything Home Assistant knows.
+A click on a row ticks it or unticks it.
+
+@{" Picture: device selection " link "Pics/select.ilbm/main"}
+
+ @{b}Search@{ub}   Type into the search field and the list shrinks to the
+          matches - in room, name and entity ID, upper or lower case
+          does not matter. "All", "None" and "Suggest" then act only on
+          what the list shows: search "grid", press "All", and you get
+          all grid sensors, not the whole house.
+
+ @{b}Suggest@{ub}  Ticks the usual devices and leaves out the ballast: the
+          per-device internet switches of a Fritzbox, the Dnd lamps of
+          smart sockets, anything unavailable.
+
+ @{b}Apply@{ub}    Takes the ticks over into your pages. Newly ticked devices go
+          onto the page of their room, into the group of their kind -
+          both are created if missing. Unticked devices disappear. Your
+          own arrangement stays as it is. History charts are never
+          removed here, only in the editor.
+
+Closing the window without Apply discards the changes.
+
+@{b}More than 100 devices@{ub} make every poll large, and an A500 cannot keep
+up. Apply then asks first:
+
+@{" Picture: the question " link "Pics/manydevices.ilbm/main"}
+@endnode
+
+
+@node EN_Editor "The editor"
+@{b}The editor@{ub}
+
+"Edit ..." opens the editor on the page you are looking at.
+
+@{" Picture: editor " link "Pics/editor.ilbm/main"}
+
+Left the pages, right the contents of the chosen page: group headings
+in bold, below them the devices with their kind.
+
+ @{b}Pages@{ub}      New, Remove, Up, Down.
+ @{b}Contents@{ub}   Group adds a group, Device ... adds a device, Remove,
+            Up, Down.
+ @{b}Selection@{ub}  Name and Rename; the page icon (with preview) and the
+            widget kind, each confirmed with "set".
+
+@{b}Drag and drop:@{ub} drag a device to another place or into another group,
+a whole group by its heading, a page within the page list. Up and Down
+do the same from the keyboard.
+
+@{b}Device ...@{ub} opens the device picker. Start typing right away - the
+cursor sits in the search field. A double click adds the device.
+
+@{" Picture: adding a device " link "Pics/adddevice.ilbm/main"}
+
+The main window follows the editor: after closing it you are on the
+page you last worked on.
+
+Nothing is written to disk until you press @{b}Save@{ub}. Before saving, the
+old file is kept as Dashboards.prefs.bak - see @{"Files and backups" link EN_Files}.
+@endnode
+
+
+@node EN_History "History charts"
+@{b}History charts@{ub}
+
+@{" Picture: energy page with charts " link "Pics/energy.ilbm/main"}
+
+A bar chart of the last 30 days or 12 months, like the statistics cards
+in Home Assistant - for your power consumption, for instance.
+
+How to make one:
+
+ 1. Edit ...  -> choose the page
+ 2. Device ... -> search for the meter, e.g. "grid home" -> double click
+ 3. click the new row, set the kind to "History (months)" or
+    "History (days)", press "set"
+ 4. Save
+
+@{b}Which sensors?@{ub} Only those with long-term statistics in Home
+Assistant, that is with a state_class - energy meters in kWh, gas,
+water. Power sensors (W, kW) only keep averages; they show "No data" -
+use Number or Bar for them instead.
+
+The values come from Home Assistant's long-term statistics over its
+WebSocket interface. One query is 1 to 3 KB and takes about half a
+second on a 68030. Charts are fetched at start, on Refresh and every ten
+minutes. The Amiga clock does not matter - the date comes from Home
+Assistant.
+
+The number of bars can be changed in Dashboards.prefs, see
+@{"Files and backups" link EN_Files}.
+@endnode
+
+
+@node EN_Settings "Settings"
+@{b}Settings@{ub}
+
+@{" Picture: settings " link "Pics/settings.ilbm/main"}
+
+   Address          http://homeassistant:8123 - a numeric address
+                    saves the name lookup
+   Token            the long-lived access token
+   Interval (s)     how often states are fetched. Over a slow link
+                    15 or 30 seconds.
+   Unknown values   what to do with devices that report "unknown" or
+                    "unavailable": show them, grey them out (default)
+                    or hide them. A group left empty disappears too.
+
+If Home Assistant does not answer, the program gives up after five
+seconds and then only knocks every thirty seconds until it answers
+again - it never freezes.
+@endnode
+
+
+@node EN_Languages "Languages"
+@{b}Languages@{ub}
+
+English, German, Italian and Spanish. English is built in, the others
+are in the Catalogs drawer. The language follows Prefs/Locale. For this
+program only:
+
+   SetEnv SAVE AmiHomeassistLanguage deutsch
+
+Back to the system language - both lines:
+
+   UnSetEnv AmiHomeassistLanguage
+   Delete ENVARC:AmiHomeassistLanguage
+
+Names of devices, rooms and units come from Home Assistant and are
+already in your language.
+@endnode
+
+
+@node EN_Shell "From the shell"
+@{b}From the shell@{ub}
+
+   AmiHomeassistCLI                    list by room
+   AmiHomeassistCLI ALL                including hidden entries
+   AmiHomeassistCLI DOMAIN=sensor      one domain only
+   AmiHomeassistCLI STATES             only the adopted devices
+   AmiHomeassistCLI ON=light.kitchen
+   AmiHomeassistCLI OFF=switch.beamer
+   AmiHomeassistCLI TOGGLE=light.table
+   AmiHomeassistCLI HISTORY=sensor.energy          last 30 days
+   AmiHomeassistCLI HISTORY=sensor.energy MONTH    last 12 months
+   AmiHomeassistCLI HISTORY=sensor.energy COUNT=7  last 7 days
+
+Setting up without the interface:
+
+   AmiHomeassistCLI HOST=http://homeassistant:8123 TOKEN=<token> SAVE
+@endnode
+
+
+@node EN_Files "Files and backups"
+@{b}Files and backups@{ub}
+
+   ENVARC:AmiHomeassist/AmiHomeassist.prefs   address, token, interval
+   ENVARC:AmiHomeassist/Import.prefs          the ticked devices
+   ENVARC:AmiHomeassist/Dashboards.prefs      the pages
+
+Before each save the previous file is kept as .bak - Dashboards.prefs.bak
+and Import.prefs.bak. If something went wrong, copy it back:
+
+   Copy ENVARC:AmiHomeassist/Dashboards.prefs.bak
+        ENVARC:AmiHomeassist/Dashboards.prefs
+
+All files are plain text. A line in Dashboards.prefs:
+
+   chart sensor.energy "Energy per month" 1 12
+
+1 means months (0 days), 12 is the number of bars.
+
+The token is stored in the clear and grants full access to your Home
+Assistant. On your own network that is acceptable, but you should know
+it.
+@endnode
+
+
+@node EN_Tips "Tips and trouble"
+@{b}Tips and trouble@{ub}
+
+ @{b}Slow?@{ub}  Keep the number of devices small - a few dozen are fine on an
+        A500, several hundred are not. Raise the interval to 15 or 30
+        seconds.
+
+ @{b}"Home Assistant does not answer"@{ub}  Check the address in Settings.
+        https:// does not work, http:// does.
+
+ @{b}"Home Assistant rejects the token (401)"@{ub}  Create a new long-lived token in Home
+        Assistant and enter it again.
+
+ @{b}A device shows "missing"@{ub}  It no longer exists in Home Assistant.
+        Remove it in the editor.
+
+ @{b}Empty chart, "No data"@{ub}  The sensor keeps no long-term statistics;
+        see @{"History charts" link EN_History}.
+
+ @{b}Pages gone after an accident@{ub}  Restore Dashboards.prefs.bak, see
+        @{"Files and backups" link EN_Files}.
+@endnode
+
+
+@node EN_Credits "Credits and rights"
+@{b}Credits and rights@{ub}
+
+Author: radi777. Source: https://github.com/radi7777/AmiHomeassist
+
+MIT licence, source included in the Source drawer. muistubs.c comes
+from the amimcp project and is Apache 2.0.
+
+Icons: Material Design Icons, Apache 2.0. The house logo belongs to the
+Home Assistant project, which is not affiliated with this program.
+
+This program is vibe coded. I described what it should do, an AI wrote
+the code, and I read, tested and decided what stayed in. The full source
+is included so you can judge for yourself.
+@endnode
+
+
+@node EN_Versions "Version history"
+@{b}Version history@{ub}
+
+ @{b}0.9.1@{ub}  Search in both device lists. Apply adds and removes instead
+        of rebuilding all pages; a question before more than 100
+        devices; automatic .bak files. Crash when removing a page
+        fixed. The window no longer closes and reopens on start. This
+        guide.
+ @{b}0.9@{ub}    History charts. Freeze on quit after a Workbench start fixed.
+ @{b}0.8@{ub}    Tidier pages, unknown values, drag and drop in the editor,
+        stack fix for real 68030 machines.
+ @{b}0.7@{ub}    Thermostats, timeouts on the wire.
+ @{b}0.6@{ub}    Four languages, cross-compiled with gcc.
+ @{b}0.5@{ub}    First Aminet release: sidebar and dashboards.
+
+The full list is in Changelog.txt.
+@endnode
+
+
+@node DE_Contents "AmiHomeassist - Inhalt"
+@{b}Inhalt@{ub}
+
+   @{" Was es ist             " link DE_Intro}
+   @{" Was du brauchst        " link DE_Need}
+   @{" Einrichten             " link DE_Setup}
+   @{" Das Hauptfenster       " link DE_Window}
+   @{" Darstellungsarten      " link DE_Kinds}
+   @{" Geräte auswählen       " link DE_Select}
+   @{" Der Editor             " link DE_Editor}
+   @{" Verlaufsdiagramme      " link DE_History}
+   @{" Einstellungen          " link DE_Settings}
+   @{" Sprachen               " link DE_Languages}
+   @{" Aus der Shell          " link DE_Shell}
+   @{" Dateien und Sicherung  " link DE_Files}
+   @{" Tipps und Probleme     " link DE_Tips}
+   @{" Herkunft und Rechte    " link DE_Credits}
+   @{" Versionen              " link DE_Versions}
+
+   @{" English                " link EN_Contents}
+@endnode
+
+
+@node DE_Intro "Was es ist"
+@{b}Was es ist@{ub}
+
+AmiHomeassist zeigt dein Smart Home auf dem Amiga: Lampen, Steckdosen,
+Rollläden, Heizungen, Fenster, Sensoren und Energiezähler aus Home
+Assistant, geordnet auf eigenen Dashboards.
+
+Links eine Seitenleiste mit einer Seite je Raum (oder wie du willst),
+rechts der Inhalt der gewählten Seite in umrandeten Kästen. Ein Klick auf
+einen Schalter legt das Gerät um. Der Zustand wird regelmäßig geholt,
+Änderungen von anderswo erscheinen also von selbst.
+
+Ein großes Home Assistant hat schnell 900 Einträge; auf dem Amiga willst
+du ein, zwei Dutzend. Die wählst du aus, und im Editor ordnest du Seiten,
+Kästen und Geräte frei an - mit der Maus, per Ziehen und Ablegen.
+
+@{" Bild: Hauptfenster " link "Pics/main.ilbm/main"}
+
+AmiHomeassist geht sparsam mit der Leitung um: Der ganze Gerätekatalog
+kommt einmal, danach nur noch die Zustände der Geräte auf dem Schirm. In
+einer Anlage mit 941 Einträgen sind das 1,4 KB je Abfrage statt 55 KB.
+@endnode
+
+
+@node DE_Need "Was du brauchst"
+@{b}Was du brauchst@{ub}
+
+ - AmigaOS 2.0 oder neuer, 68020 oder besser. Keine FPU nötig.
+
+ - MUI 3.8 oder neuer.
+
+ - Die NList-Klassen NList.mcc und NListview.mcc. MUI bringt sie NICHT
+   mit. Aus dem Aminet (dev/mui/MCC_NList.lha) oder von
+   https://github.com/amiga-mui/nlist nach MUI:Libs/MUI.
+   Prüfen mit:  Version MUI:Libs/MUI/NList.mcc
+
+ - Einen TCP/IP-Stack mit bsdsocket.library: Roadshow, AmiTCP, Miami ...
+
+ - Home Assistant über einfaches http erreichbar. https geht nicht und
+   wird mit einer klaren Meldung abgelehnt.
+
+ - Einen langlebigen Zugriffstoken aus Home Assistant: dein Profil,
+   Reiter Sicherheit, ganz unten "Langlebige Zugriffstoken".
+
+Getestet auf einem A500 mit Terrible Fire TF536 (68030, ohne FPU,
+plipbox) und auf einem A500 mit PiStorm, beide mit OS 3.2 und MUI 3.8.
+@endnode
+
+
+@node DE_Setup "Einrichten"
+@{b}Einrichten@{ub}
+
+ 1. Die Schublade AmiHomeassist irgendwohin kopieren.
+
+ 2. AmiHomeassist starten. Beim ersten Mal öffnet sich das Fenster
+    @{"Einstellungen" link DE_Settings} von selbst. Adresse und Token
+    eintragen, Speichern.
+
+ 3. Die Geräteauswahl öffnet sich mit einem Vorschlag. Der ist nur
+    geraten - durchsehen, anpassen, Übernehmen. Daraus entsteht je Raum
+    eine Seite. Siehe @{"Geräte auswählen" link DE_Select}.
+
+ 4. Wer es anders will, nimmt "Bearbeiten ..." - siehe
+    @{"Der Editor" link DE_Editor}.
+
+Das Programm richtet sich selbst einen Stapel von 64 KB ein; der
+Stack-Eintrag im Icon spielt keine Rolle.
+@endnode
+
+
+@node DE_Window "Das Hauptfenster"
+@{b}Das Hauptfenster@{ub}
+
+@{" Bild: Hauptfenster " link "Pics/main.ilbm/main"}
+
+Links das Logo mit der Version, darunter deine Seiten. Ein Klick zeigt die
+Seite rechts.
+
+Rechts die Seite in umrandeten Kästen. Die Beschriftungen stehen
+rechtsbündig mit Doppelpunkt vor ihrem Wert, alles fluchtet. Schalter
+schalten per Klick, Rollläden und Heizungen haben Knöpfe.
+
+Unten:
+
+   Aktualisieren    holt alles neu - Katalog, Seiten, Diagramme
+   Auswahl ...      welche Geräte das Programm kennt, siehe
+                    @{"Geräte auswählen" link DE_Select}
+   Bearbeiten ...   Seiten ordnen, siehe @{"Der Editor" link DE_Editor}
+   Einstellungen ... Adresse, Token, Abstand, siehe @{"Einstellungen" link DE_Settings}
+
+Die Statuszeile zeigt, wie viele Geräte auf wie vielen Seiten stehen,
+oder was schiefging.
+
+Beim Start erscheint das Fenster erst, wenn alle Seiten fertig sind - auf
+einem langsamen Amiga dauert das zwei, drei Sekunden.
+@endnode
+
+
+@node DE_Kinds "Darstellungsarten"
+@{b}Darstellungsarten@{ub}
+
+   Schalter      light und switch - der Schalter zum Klicken
+   Lämpchen      binary_sensor - Fenster offen oder zu
+   Zahl          sensor mit Einheit
+   Balken        sensor mit festem Bereich, Prozent oder Watt
+   Rollladen     cover - Auf, Stop, Zu und die Stellung
+   Thermostat    climate - Ist- und Solltemperatur, kälter, wärmer,
+                 Betriebsart
+   Text          eine Zwischenüberschrift
+   Verlauf       Balkendiagramm der letzten 30 Tage oder 12 Monate,
+                 siehe @{"Verlaufsdiagramme" link DE_History}
+
+Beim Hinzufügen schlägt das Programm eine Art vor, aus Domain und
+Geräteklasse. Im Editor lässt sie sich ändern.
+@endnode
+
+
+@node DE_Select "Geräte auswählen"
+@{b}Geräte auswählen@{ub}
+
+"Auswahl ..." im Hauptfenster zeigt alles, was Home Assistant kennt. Ein
+Klick auf eine Zeile hakt sie an oder ab.
+
+@{" Bild: Geräteauswahl " link "Pics/select.ilbm/main"}
+
+ @{b}Suche@{ub}       Ins Suchfeld tippen, und die Liste schrumpft auf die
+             Treffer - in Raum, Name und Entity-ID, ohne Rücksicht auf
+             Groß und klein. "Alle", "Keine" und "Vorschlag" wirken dann
+             nur auf das, was die Liste zeigt: "grid" suchen, "Alle"
+             drücken, und du bekommst alle Grid-Sensoren, nicht das
+             ganze Haus.
+
+ @{b}Vorschlag@{ub}   Hakt die üblichen Geräte an und lässt den Ballast weg:
+             die Internet-Schalter einer Fritzbox je Gerät, die
+             Dnd-Lämpchen von Steckdosen, alles Unerreichbare.
+
+ @{b}Übernehmen@{ub}  Überträgt die Haken auf deine Seiten. Neu angehakte
+             Geräte kommen auf die Seite ihres Raums in den Kasten ihrer
+             Art - beides wird angelegt, wenn es fehlt. Abgehakte
+             verschwinden. Deine eigene Anordnung bleibt, wie sie ist.
+             Verlaufsdiagramme werden hier nie entfernt, nur im Editor.
+
+Wer das Fenster ohne Übernehmen schließt, verwirft die Änderungen.
+
+@{b}Mehr als 100 Geräte@{ub} machen jede Abfrage groß, und ein A500 kommt nicht
+mehr mit. Übernehmen fragt dann vorher nach:
+
+@{" Bild: die Rückfrage " link "Pics/manydevices.ilbm/main"}
+@endnode
+
+
+@node DE_Editor "Der Editor"
+@{b}Der Editor@{ub}
+
+"Bearbeiten ..." öffnet den Editor auf der Seite, die du gerade ansiehst.
+
+@{" Bild: Editor " link "Pics/editor.ilbm/main"}
+
+Links die Seiten, rechts der Inhalt der gewählten Seite: Kastenüberschriften fett, darunter die Geräte mit ihrer Art.
+
+ @{b}Seiten@{ub}    Neu, Weg, Hoch, Runter.
+ @{b}Inhalt@{ub}    Gruppe legt einen Kasten an, Gerät ... fügt ein Gerät
+           hinzu, Weg, Hoch, Runter.
+ @{b}Auswahl@{ub}   Name und Umbenennen; Seitensymbol (mit Vorschau) und
+           Darstellungsart, jeweils mit "setzen" bestätigen.
+
+@{b}Ziehen und Ablegen:@{ub} ein Gerät an eine andere Stelle oder in einen
+anderen Kasten ziehen, einen ganzen Kasten an seiner Überschrift, eine
+Seite in der Seitenliste. Hoch und Runter tun dasselbe per Tastatur.
+
+@{b}Gerät ...@{ub} öffnet die Geräteauswahl. Gleich lostippen - der Cursor
+steht im Suchfeld. Ein Doppelklick fügt das Gerät hinzu.
+
+@{" Bild: Gerät hinzufügen " link "Pics/adddevice.ilbm/main"}
+
+Das Hauptfenster folgt dem Editor: Nach dem Schließen stehst du auf der
+Seite, an der du zuletzt gearbeitet hast.
+
+Auf die Platte kommt erst etwas mit @{b}Speichern@{ub}. Davor wird die alte
+Datei als Dashboards.prefs.bak aufgehoben - siehe
+@{"Dateien und Sicherung" link DE_Files}.
+@endnode
+
+
+@node DE_History "Verlaufsdiagramme"
+@{b}Verlaufsdiagramme@{ub}
+
+@{" Bild: Energie-Seite mit Diagrammen " link "Pics/energy.ilbm/main"}
+
+Ein Balkendiagramm der letzten 30 Tage oder 12 Monate, wie die
+Statistik-Karten in Home Assistant - etwa für deinen Stromverbrauch.
+
+So legst du eins an:
+
+ 1. Bearbeiten ... -> die Seite wählen
+ 2. Gerät ... -> den Zähler suchen, z. B. "grid home" -> Doppelklick
+ 3. die neue Zeile anklicken, als Art "Verlauf (Monate)" oder
+    "Verlauf (Tage)" wählen, "setzen"
+ 4. Speichern
+
+@{b}Welche Sensoren?@{ub} Nur solche mit Langzeitstatistik in Home Assistant,
+also mit einer state_class - Stromzähler in kWh, Gas, Wasser.
+Leistungssensoren (W, kW) führen nur Mittelwerte; sie zeigen
+"Keine Daten" - dafür lieber Zahl oder Balken nehmen.
+
+Die Werte kommen aus der Langzeitstatistik von Home Assistant über die
+WebSocket-Schnittstelle. Eine Abfrage ist 1 bis 3 KB groß und dauert auf
+einem 68030 etwa eine halbe Sekunde. Geholt wird beim Start, bei
+Aktualisieren und alle zehn Minuten. Die Uhr des Amiga spielt keine
+Rolle - das Datum kommt von Home Assistant.
+
+Die Zahl der Balken lässt sich in Dashboards.prefs ändern, siehe
+@{"Dateien und Sicherung" link DE_Files}.
+@endnode
+
+
+@node DE_Settings "Einstellungen"
+@{b}Einstellungen@{ub}
+
+@{" Bild: Einstellungen " link "Pics/settings.ilbm/main"}
+
+   Adresse            http://homeassistant:8123 - eine Zahlenadresse
+                      spart die Namensauflösung
+   Token              der langlebige Zugriffstoken
+   Abstand (s)        wie oft der Zustand geholt wird. Über eine
+                      langsame Leitung 15 oder 30 Sekunden.
+   Unbekannte Werte   was mit Geräten geschieht, die "unknown" oder
+                      "unavailable" melden: anzeigen, ausgrauen
+                      (Voreinstellung) oder ausblenden. Ein Kasten, der
+                      dadurch leer wird, verschwindet mit.
+
+Antwortet Home Assistant nicht, gibt das Programm nach fünf Sekunden auf
+und klopft dann nur noch alle dreißig Sekunden an, bis es wieder geht -
+es friert nie ein.
+@endnode
+
+
+@node DE_Languages "Sprachen"
+@{b}Sprachen@{ub}
+
+Englisch, Deutsch, Italienisch und Spanisch. Englisch ist eingebaut, die
+anderen liegen in der Schublade Catalogs. Die Sprache folgt
+Prefs/Locale. Nur für dieses Programm:
+
+   SetEnv SAVE AmiHomeassistLanguage deutsch
+
+Zurück zur Systemsprache - beide Zeilen:
+
+   UnSetEnv AmiHomeassistLanguage
+   Delete ENVARC:AmiHomeassistLanguage
+
+Namen von Geräten, Räumen und Einheiten kommen aus Home Assistant und
+sind ohnehin in deiner Sprache.
+@endnode
+
+
+@node DE_Shell "Aus der Shell"
+@{b}Aus der Shell@{ub}
+
+   AmiHomeassistCLI                    Liste nach Raum
+   AmiHomeassistCLI ALL                auch Ausgeblendetes
+   AmiHomeassistCLI DOMAIN=sensor      nur eine Domain
+   AmiHomeassistCLI STATES             nur die übernommenen Geräte
+   AmiHomeassistCLI ON=light.kueche
+   AmiHomeassistCLI OFF=switch.beamer
+   AmiHomeassistCLI TOGGLE=light.tisch
+   AmiHomeassistCLI HISTORY=sensor.strom          letzte 30 Tage
+   AmiHomeassistCLI HISTORY=sensor.strom MONTH    letzte 12 Monate
+   AmiHomeassistCLI HISTORY=sensor.strom COUNT=7  letzte 7 Tage
+
+Einrichten ohne Oberfläche:
+
+   AmiHomeassistCLI HOST=http://homeassistant:8123 TOKEN=<token> SAVE
+@endnode
+
+
+@node DE_Files "Dateien und Sicherung"
+@{b}Dateien und Sicherung@{ub}
+
+   ENVARC:AmiHomeassist/AmiHomeassist.prefs   Adresse, Token, Abstand
+   ENVARC:AmiHomeassist/Import.prefs          die angehakten Geräte
+   ENVARC:AmiHomeassist/Dashboards.prefs      die Seiten
+
+Vor jedem Speichern wird die bisherige Datei als .bak aufgehoben -
+Dashboards.prefs.bak und Import.prefs.bak. Ging etwas schief, zurückkopieren:
+
+   Copy ENVARC:AmiHomeassist/Dashboards.prefs.bak
+        ENVARC:AmiHomeassist/Dashboards.prefs
+
+Alle Dateien sind einfacher Text. Eine Zeile in Dashboards.prefs:
+
+   chart sensor.strom "Strom je Monat" 1 12
+
+1 heißt Monate (0 Tage), 12 ist die Zahl der Balken.
+
+Der Token steht im Klartext da und öffnet dein ganzes Home Assistant. Im
+eigenen Netz ist das vertretbar, wissen solltest du es.
+@endnode
+
+
+@node DE_Tips "Tipps und Probleme"
+@{b}Tipps und Probleme@{ub}
+
+ @{b}Langsam?@{ub}  Die Zahl der Geräte klein halten - ein paar Dutzend gehen
+           auf einem A500 gut, einige hundert nicht. Den Abstand auf 15
+           oder 30 Sekunden stellen.
+
+ @{b}"Home Assistant antwortet nicht"@{ub}  Die Adresse in den Einstellungen
+           prüfen. https:// geht nicht, http:// schon.
+
+ @{b}"Home Assistant weist den Token zurück (401)"@{ub}  In Home Assistant einen neuen
+           langlebigen Token anlegen und neu eintragen.
+
+ @{b}Ein Gerät zeigt "fehlt"@{ub}  Es gibt es in Home Assistant nicht mehr.
+           Im Editor entfernen.
+
+ @{b}Leeres Diagramm, "Keine Daten"@{ub}  Der Sensor führt keine
+           Langzeitstatistik, siehe @{"Verlaufsdiagramme" link DE_History}.
+
+ @{b}Seiten nach einem Missgeschick weg@{ub}  Dashboards.prefs.bak
+           zurückkopieren, siehe @{"Dateien und Sicherung" link DE_Files}.
+@endnode
+
+
+@node DE_Credits "Herkunft und Rechte"
+@{b}Herkunft und Rechte@{ub}
+
+Autor: radi777. Quelltext: https://github.com/radi7777/AmiHomeassist
+
+MIT-Lizenz, der Quelltext liegt in der Schublade Source bei. muistubs.c
+stammt aus dem Projekt amimcp und steht unter Apache 2.0.
+
+Symbole: Material Design Icons, Apache 2.0. Das Haus-Logo gehört dem
+Projekt Home Assistant, das mit diesem Programm nichts zu tun hat.
+
+Dieses Programm ist Vibe Coding. Ich habe beschrieben, was es tun soll,
+eine KI hat den Code geschrieben, und ich habe gelesen, getestet und
+entschieden, was bleibt. Der ganze Quelltext liegt bei, damit du selbst
+urteilen kannst.
+@endnode
+
+
+@node DE_Versions "Versionen"
+@{b}Versionen@{ub}
+
+ @{b}0.9.1@{ub}  Suche in beiden Gerätelisten. Übernehmen ergänzt und entfernt,
+        statt alle Seiten neu zu bauen; Rückfrage ab 100 Geräten;
+        automatische .bak-Dateien. Absturz beim Entfernen einer Seite
+        behoben. Das Fenster schließt und öffnet sich beim Start nicht
+        mehr. Diese Anleitung.
+ @{b}0.9@{ub}    Verlaufsdiagramme. Einfrieren beim Beenden nach
+        Workbench-Start behoben.
+ @{b}0.8@{ub}    Aufgeräumte Seiten, unbekannte Werte, Ziehen und Ablegen im
+        Editor, Stapel-Korrektur für echte 68030.
+ @{b}0.7@{ub}    Heizungen, Zeitgrenzen am Netz.
+ @{b}0.6@{ub}    Vier Sprachen, cross mit gcc übersetzt.
+ @{b}0.5@{ub}    Erstes Aminet-Release: Seitenleiste und Dashboards.
+
+Die vollständige Liste steht in Changelog.txt.
+@endnode

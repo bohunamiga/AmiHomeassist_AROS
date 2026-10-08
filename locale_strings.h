@@ -163,8 +163,24 @@
 #define MSG_HVAC_DRY             158
 #define MSG_HVAC_FAN             159
 #define MSG_HVAC_HEATCOOL        160
+#define MSG_LBL_UNKNOWN          161
+#define MSG_UNK_SHOW             162
+#define MSG_UNK_DIM              163
+#define MSG_UNK_HIDE             164
+#define MSG_FILE_PREFS_UNKNOWN   165
+#define MSG_CLI_NOHISTORY        166
+#define MSG_KIND_CHART           167
+#define MSG_GROUP_CHARTS         168
+#define MSG_CHART_MONTHS         169
+#define MSG_CHART_DAY            170
+#define MSG_CHART_EMPTY          171
+#define MSG_KIND_CHART_MONTH     172
+#define MSG_ED_LBL_FIND          173
+#define MSG_ASK_MANY             174
+#define MSG_ASK_MANY_BT          175
+#define MSG_STATUS_MERGED        176
 
-#define AMILOC_COUNT 161
+#define AMILOC_COUNT 177
 
 /* Die eingebauten Texte sind Englisch - siehe amiloc.h. */
 static const char *const AMILOC_BUILTIN[AMILOC_COUNT] = {
@@ -250,7 +266,7 @@ static const char *const AMILOC_BUILTIN[AMILOC_COUNT] = {
     /* 79  */ "; AmiHomeassist - adopted devices, one ID per line\n",
     /* 80  */ "; AmiHomeassist - dashboards\n",
     /* 81  */ "; Written by the editor. Edit by hand if you must:\n",
-    /* 82  */ "; Kinds: toggle lamp value gauge cover text\n\n",
+    /* 82  */ "; Kinds: toggle lamp value gauge cover text climate\n;   chart <entity> <label> <0 = days, 1 = months> <bars>\n\n",
     /* 83  */ "Edit dashboards",
     /* 84  */ "Add device",
     /* 85  */ "\33cPages",
@@ -329,6 +345,22 @@ static const char *const AMILOC_BUILTIN[AMILOC_COUNT] = {
     /* 158 */ "dry",
     /* 159 */ "fan",
     /* 160 */ "heat/cool",
+    /* 161 */ "_Unknown values",
+    /* 162 */ "show",
+    /* 163 */ "grey out",
+    /* 164 */ "hide",
+    /* 165 */ "\n; Unknown or unavailable values: 0 show, 1 grey out, 2 hide\n",
+    /* 166 */ "No statistics for this sensor. Is the name right, and does it have a state_class?\n",
+    /* 167 */ "History (days)",
+    /* 168 */ "History",
+    /* 169 */ "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec",
+    /* 170 */ "%ld %s",
+    /* 171 */ "No data",
+    /* 172 */ "History (months)",
+    /* 173 */ "_Search",
+    /* 174 */ "You have selected %ld devices.\nMore than about 100 make the Amiga very slow.\n\nApply anyway?",
+    /* 175 */ "_Apply|_Cancel",
+    /* 176 */ "%ld added, %ld removed - your pages are kept",
 };
 
 #endif

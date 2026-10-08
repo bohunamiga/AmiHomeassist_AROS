@@ -1,6 +1,112 @@
 AmiHomeassist - was sich geaendert hat
 =====================================
 
+0.9.1   30.09.2026
+
+  Anleitung. AmiHomeassist.guide erklaert alles, zweisprachig in einer
+  Datei, mit Bildschirmfotos in der Schublade Pics.
+
+  Suche in beiden Geraetelisten - in der Auswahl und beim Hinzufuegen im
+  Editor. Gesucht wird in Raum, Name und Entity-ID. "Alle", "Keine" und
+  "Vorschlag" wirken nur noch auf das, was die Liste gerade zeigt. Im
+  Editor fuegt ein Doppelklick das Geraet hinzu.
+
+  "Uebernehmen" baut die Seiten nicht mehr neu. Bisher war damit jede
+  Arbeit im Editor weg. Jetzt kommen neu gewaehlte Geraete auf die Seite
+  ihres Raums, abgewaehlte verschwinden, der Rest bleibt, wie er war.
+  Verlaufsdiagramme bleiben immer stehen. Ab 100 Geraeten fragt das
+  Programm vorher nach - mehr schafft ein A500 nicht. Wer das Fenster
+  ohne Uebernehmen schliesst, verwirft seine Haekchen; bisher galten sie
+  trotzdem fuer die Abfrage im Takt.
+
+  Sicherung: vor jedem Speichern bleibt die alte Datei als .bak liegen.
+
+  Absturz beim Entfernen einer Seite behoben (Guru 8000 0008). Oeffnet
+  man den Editor, waehrend "Uebernehmen" oder "Aktualisieren" die Seiten
+  aendert, zeigen seine Listen jetzt nicht mehr ins Leere.
+
+  Beim Start oeffnet sich das Fenster erst, wenn alle Seiten fertig sind,
+  statt sich zu oeffnen, zu schliessen und wieder zu oeffnen.
+
+  Waehrungen: Zeichen, die Latin-1 nicht kennt, werden zum ISO-Code -
+  12,40 EUR statt "12,40 ?", ebenso INR, RUB, TRY und andere.
+  Osteuropaeische Buchstaben werden zum Grundbuchstaben ("zl" statt
+  "z?"). Auch Zustaende werden jetzt umgewandelt, nicht nur Namen.
+
+  Ein Diagramm ohne verwertbare Werte zeigt "Keine Daten" statt einer
+  leeren Achse.
+
+
+0.9   30.09.2026
+
+  Verlaeufe. Neue Darstellungsart fuer Zaehler wie den Stromverbrauch:
+  ein Balkendiagramm der letzten 30 Tage oder 12 Monate, so wie die
+  Statistik-Karten in Home Assistant. Die Werte kommen aus der
+  Langzeitstatistik von Home Assistant, die es nur ueber die
+  WebSocket-Schnittstelle gibt - AmiHomeassist spricht dafuer jetzt ein
+  kleines Stueck WebSocket. Eine Abfrage ist 1 bis 3 KB gross und
+  dauert auf einem 68030 mit plipbox eine halbe Sekunde. Neu geholt wird
+  beim Start, bei "Aktualisieren" und alle zehn Minuten.
+
+  Gezeichnet wird von einer eigenen MUI-Klasse, ohne Fremdklasse und
+  ohne FPU. Das Raster richtet sich nach der verfuegbaren Hoehe, die
+  Beschriftung nach der Breite.
+
+  Im Editor stehen dafuer "Verlauf (Tage)" und "Verlauf (Monate)" bei
+  den Darstellungsarten. Die Zahl der Balken laesst sich in der
+  Dashboard-Datei aendern.
+
+  Die Shell-Fassung zeigt dieselben Werte als Liste:
+      AmiHomeassistCLI HISTORY=sensor.verbrauch MONTH
+
+  Einfrieren beim Beenden behoben. 0.8 hatte seinen Stapel ueber die
+  C-Bibliothek umgeschaltet; von der Workbench gestartet fror der Amiga
+  beim Beenden hart ein, ohne Guru. Jetzt schaltet das Programm selbst
+  um und vor dem Ende auch selbst zurueck. Wer 0.8 benutzt, sollte
+  wechseln.
+
+  Editor und Hauptfenster zeigen dieselbe Seite: der Editor oeffnet dort,
+  wo man gerade ist, und nach dem Schliessen steht man dort, wo man
+  zuletzt bearbeitet hat. Auch "Aktualisieren" springt nicht mehr an den
+  Anfang.
+
+
+0.8   29.09.2026
+
+  Aufgeraeumte Seiten. Die Beschriftungen stehen rechtsbuendig mit
+  Doppelpunkt vor ihrem Wert, wie in einem MUI-Formular, und fluchten
+  ueber alle Kaesten einer Seite. Alle Bedienknoepfe - Auf, Stop, Zu,
+  kaelter, waermer, Betriebsart - sind gleich breit und stehen in
+  Spalten; der Knopf der Betriebsart springt nicht mehr, wenn er von
+  "auto" auf "Heizen" wechselt. Auch das Einstellungsfenster hat jetzt
+  Doppelpunkte. Unter dem Logo steht klein die Versionsnummer.
+
+  Unbekannte Werte. Liefert ein Geraet "unknown", "unavailable" oder
+  nichts, laesst sich einstellen, was damit geschieht: anzeigen,
+  ausgrauen (Voreinstellung) oder ausblenden. Ausgeblendet verschwindet
+  die Zeile, und ist ein Kasten dann leer, verschwindet er mit. Meldet
+  sich das Geraet zurueck, erscheint es wieder von selbst.
+
+  Ein Fenster- oder Tuersensor ohne Verbindung stand bisher als "zu" da.
+  Jetzt steht dort, was Home Assistant meldet.
+
+  Ziehen und Ablegen im Editor. Geraete lassen sich mit der Maus an eine
+  andere Stelle oder in einen anderen Kasten ziehen, ganze Kaesten ueber
+  ihre Ueberschrift, Seiten in der Seitenliste. Die Knoepfe Hoch und
+  Runter bleiben fuer die Tastatur.
+
+  Absturz auf echten 68030 behoben. Ohne Stack-Eintrag im Icon gibt die
+  Workbench einem Programm nur 4 KB, und das war fuer MUI zu wenig. Auf
+  einem A500 mit TF536 kam es zu Guru 8000 0003 und 0100 000F. Das
+  Programm stellt sich seinen Stapel jetzt selbst, gleich wie es
+  gestartet wird.
+
+  Bei nur einem bis vier uebernommenen Geraeten schrieb die Abfrage im
+  Takt ueber das Ende eines Puffers hinaus. Behoben.
+
+  Die Zahl im Balken verschwand nach dem ersten Seitenwechsel. Behoben.
+
+
 0.7   08.09.2026
 
   Zeitgrenzen am Netz. Antwortet Home Assistant nicht, stand bisher das

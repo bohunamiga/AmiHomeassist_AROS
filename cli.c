@@ -18,6 +18,7 @@
 #include "amiha.h"
 #include "amiloc.h"
 #include "dash.h"
+#include "stack.h"
 
 /* siehe amiha.c: netinclude verdeckt SAS/Cs proto/dos.h */
 extern struct DosLibrary *DOSBase;
@@ -31,16 +32,62 @@ typedef SIPTR ReadArg;
 typedef LONG ReadArg;
 #endif
 
-const char *VERSTAG = "$VER: AmiHomeassist 0.7 (1.9.2026)";
+const char *VERSTAG = "$VER: AmiHomeassist " AH_VERSION " (" AH_DATE ")";
 
-#define TEMPLATE "ALL/S,DOMAIN/K,ON/K,OFF/K,TOGGLE/K,STATES/S,DASH/S,HOST/K,TOKEN/K,SAVE/S"
+#define TEMPLATE "ALL/S,DOMAIN/K,ON/K,OFF/K,TOGGLE/K,STATES/S,DASH/S,HOST/K,TOKEN/K,SAVE/S," \
+                 "HISTORY/K,MONTH/S,COUNT/K/N"
 
 enum {
     ARG_ALL, ARG_DOMAIN, ARG_ON, ARG_OFF, ARG_TOGGLE, ARG_STATES, ARG_DASH,
-    ARG_HOST, ARG_TOKEN, ARG_SAVE, ARG_COUNT
+    ARG_HOST, ARG_TOKEN, ARG_SAVE, ARG_HISTORY, ARG_MONTH, ARG_NUM,
+    ARG_COUNT
 };
 
 static struct Catalog g_cat;
+
+/* Langzeitstatistik: je Zeile Datum und Aenderung. Zum Pruefen gegen das
+ * Diagramm in Home Assistant, bevor irgendetwas gezeichnet wird. */
+#define HIST_MAX 60
+
+static void print_history(struct Prefs *p, const char *id, BOOL month,
+                          int want)
+{
+    static struct StatPoint pt[HIST_MAX];
+    int n = 0, i;
+
+    if (want <= 0 || want > HIST_MAX) {
+        want = month ? 12 : 30;
+    }
+    if (ha_statistics(p, id, month ? AH_PERIOD_MONTH : AH_PERIOD_DAY,
+                      pt, want, &n) != AH_OK) {
+        printf(GetStr(MSG_CLI_ERROR), ha_last_error());
+        return;
+    }
+    if (n == 0) {
+        /* Kein Fehler, aber auch nichts da: falscher Name, oder ein Sensor
+         * ohne state_class - der fuehrt keine Langzeitstatistik. */
+        printf("%s", GetStr(MSG_CLI_NOHISTORY));
+        return;
+    }
+    for (i = 0; i < n; i++) {
+        int y, m, d;
+
+        stat_date(pt[i].start, &y, &m, &d);
+        if (month) {
+            printf("%04d-%02d   ", y, m);
+        } else {
+            printf("%04d-%02d-%02d", y, m, d);
+        }
+        if (pt[i].valid) {
+            long v = pt[i].value;
+
+            printf("  %s%ld.%02ld\n", v < 0 ? "-" : "",
+                   (v < 0 ? -v : v) / 100, (v < 0 ? -v : v) % 100);
+        } else {
+            printf("  -\n");
+        }
+    }
+}
 
 static BOOL is_switchable(const struct Entity *e)
 {
@@ -219,7 +266,8 @@ static void do_service(struct Prefs *p, const char *entity, const char *service,
     }
 }
 
-int main(void)
+
+static int cli_main(void)
 {
     struct RDArgs *rda;
     /* Auf 64-Bit-AROS ist die ReadArgs-Tabelle SIPTR groesser als LONG! */
@@ -303,6 +351,10 @@ int main(void)
         print_states(&prefs);
     } else if (args[ARG_DASH]) {
         do_dash(&prefs);
+    } else if (args[ARG_HISTORY]) {
+        print_history(&prefs, (char *)args[ARG_HISTORY],
+                      args[ARG_MONTH] ? TRUE : FALSE,
+                      args[ARG_NUM] ? (int)*(LONG *)args[ARG_NUM] : 0);
     } else {
         print_list(&prefs, args[ARG_ALL] ? TRUE : FALSE,
                    (char *)args[ARG_DOMAIN]);
@@ -312,4 +364,10 @@ int main(void)
     FreeArgs(rda);
     locale_close();
     return RETURN_OK;
+}
+
+/* Die Shell gibt meist nur 4 KB - siehe stack.c. */
+int main(void)
+{
+    return run_with_stack(cli_main, 32768);
 }

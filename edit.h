@@ -24,7 +24,13 @@
  * erwartet. */
 Object *editor_build(Object *app, struct Dash *d, struct Catalog *c);
 
-void editor_open(void);
+void editor_open(int page);
+
+/* Gewaehlte Seite im offenen Editor, sonst -1. */
+int  editor_page(void);
+
+/* Nach einer Aenderung der Dashboards ausserhalb des Editors aufrufen. */
+void editor_refresh(int page);
 
 /* TRUE, wenn die Nummer zum Editor gehoerte. *changed wird gesetzt, wenn
  * sich am Modell etwas geaendert hat. */

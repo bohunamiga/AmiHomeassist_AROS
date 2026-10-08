@@ -1,9 +1,9 @@
-Short:        Home Assistant dashboards for MUI, now with thermostats
-Kurz:         Home Assistant auf dem Amiga, mit MUI, jetzt auch Heizungen
+Short:        Home Assistant dashboards for MUI, with guide
+Kurz:         Home Assistant auf dem Amiga, mit Anleitung
 Author:       radi777
 Uploader:     thomas.radeck gmail com (radi777, see note below)
 Type:         comm/tcp
-Version:      0.7
+Version:      0.9.1
 Architecture: m68k-amigaos
 Requires:     dev/mui/MCC_NList-0.128.lha
 Distribution: Aminet
@@ -23,29 +23,53 @@ easily has 900 entities and you want a dozen or two. So there is a
 picker with a suggestion you can overrule, and an editor where pages,
 groups and devices are put together freely.
 
-NEW IN 0.7
+NEW IN 0.9.1
 
-Heating. The climate domain is fetched too, with a widget of its own:
-current and target temperature on one line, then three buttons - colder,
-warmer, operating mode. The steps are the ones your thermostat allows,
-half a degree on some, a whole one on others. Temperatures are handled
-as whole tenths of a degree, so this still runs without an FPU.
+A manual: AmiHomeassist.guide, English and German in one file, with
+screenshots in the Pics drawer.
 
-Timeouts on the wire. Until 0.6 the whole program stood still when Home
-Assistant did not answer, until the TCP stack gave up - measured at 76
-seconds per attempt, with no window, no menu, no Ctrl-C. Now connecting
-gives up after five seconds, sending and receiving after fifteen, and
-after the second failure in a row it only knocks every thirty seconds
-until the machine answers again. Measured: 5.3 seconds instead of 76.
+Search in both device lists. All, None and Suggest act only on what the
+list shows. Apply no longer rebuilds your pages - newly chosen devices
+go onto the page of their room, unchosen ones go, everything else stays
+as you arranged it. It asks before more than 100 devices, and every save
+keeps the previous file as .bak.
 
-If the settings hold a numeric address instead of a name, the name
-lookup is skipped entirely - it is the one wait that cannot be bounded.
+Crash when removing a page fixed. Currencies Latin-1 lacks now show as
+their ISO code (EUR, INR, RUB ...) instead of "?".
 
-Two places still said "auf"/"zu" and "an"/"aus" in German from the
-source, even in an English program. Fixed.
+NEW IN 0.9
 
-The state query no longer makes Home Assistant write warnings into its
-log. It used to produce thousands of them a day in a large setup.
+History charts. A new widget kind for meters such as your power
+consumption: a bar chart of the last 30 days or 12 months, like the
+statistics cards in Home Assistant. The values come from Home
+Assistant's long-term statistics, which are only available over its
+WebSocket interface - so AmiHomeassist now speaks a small piece of
+WebSocket. One query is 1 to 3 KB and takes half a second on a 68030
+with a plipbox. Charts are fetched at start, on Refresh and every ten
+minutes.
+
+They are drawn by a MUI class of their own - no third-party class to
+install, no FPU. The grid adapts to the height available, the date
+labels to the width. In the editor pick "History (days)" or "History
+(months)" as the kind. The shell version lists the same values:
+
+    AmiHomeassistCLI HISTORY=sensor.energy MONTH
+
+Freeze on quit fixed. 0.8 switched to a larger stack through the C
+library; started from Workbench, the Amiga froze hard on quitting, no
+Guru. The program now switches the stack itself and switches it back
+before it ends. If you run 0.8, please update.
+
+Editor and main window stay on the same page: the editor opens where
+you are, and after closing it you are where you last worked. Refresh
+no longer jumps back to the first page.
+
+ALSO SINCE 0.8
+
+Labels right-aligned with a colon and buttons of equal width in
+columns, a setting for "unknown"/"unavailable" values (show, grey out,
+hide), drag and drop in the editor, and a stack fix for real 68030
+machines.
 
 WIDGET KINDS
 
@@ -57,6 +81,8 @@ WIDGET KINDS
   Thermostat  climate - current and target temperature, colder, warmer,
               and the operating mode
   Text        a caption
+  History     sensor - bar chart of the last 30 days or 12 months,
+              for sensors with long-term statistics (a state_class)
 
 When you add a device the program suggests a kind, from its domain and
 device class. The editor lets you change it.
@@ -126,32 +152,55 @@ willst du ein bis zwei Dutzend. Also gibt es eine Auswahl mit einem
 Vorschlag zum Ueberstimmen und einen Editor, in dem Seiten, Gruppen und
 Geraete frei zusammengestellt werden.
 
-NEU IN 0.7
+NEU IN 0.9.1
 
-Heizungen. Die Domain climate kommt dazu, mit einer eigenen
-Darstellungsart: Ist- und Solltemperatur in einer Zeile, darunter drei
-Knoepfe - kaelter, waermer, Betriebsart. Gezaehlt wird in der
-Schrittweite des Geraets, beim einen ein halbes Grad, beim anderen ein
-ganzes. Temperaturen sind ganze Zehntelgrad, damit das Ganze weiter
-ohne FPU auskommt.
+Eine Anleitung: AmiHomeassist.guide, Englisch und Deutsch in einer
+Datei, mit Bildschirmfotos in der Schublade Pics.
 
-Zeitgrenzen am Netz. Antwortet Home Assistant nicht, stand bis 0.6 das
-ganze Programm still, bis der TCP-Stack aufgab - gemessen 76 Sekunden
-je Versuch, ohne Fenster, ohne Menue, ohne Ctrl-C. Jetzt bricht der
-Verbindungsaufbau nach fuenf Sekunden ab, Senden und Empfangen nach
-fuenfzehn, und nach dem zweiten Fehlschlag in Folge wird nur noch alle
-dreissig Sekunden angeklopft, bis der Rechner wieder antwortet.
-Gemessen: 5,3 Sekunden statt 76.
+Suche in beiden Geraetelisten. Alle, Keine und Vorschlag wirken nur auf
+das, was die Liste zeigt. Uebernehmen baut deine Seiten nicht mehr neu -
+neu gewaehlte Geraete kommen auf die Seite ihres Raums, abgewaehlte
+gehen, alles andere bleibt, wie du es angeordnet hast. Ab 100 Geraeten
+fragt es nach, und jedes Speichern hebt die alte Datei als .bak auf.
 
-Steht in den Einstellungen eine Zahlenadresse statt eines Namens,
-entfaellt die Namensaufloesung ganz - sie ist die einzige Wartestelle,
-die sich nicht begrenzen laesst.
+Absturz beim Entfernen einer Seite behoben. Waehrungen, die Latin-1
+nicht kennt, erscheinen als ISO-Code (EUR, INR, RUB ...) statt als "?".
 
-Zwei Stellen waren fest deutsch, auch in einem englischen Programm:
-die Rollladenzustaende und die Ausgabe der Shell-Fassung. Behoben.
+NEU IN 0.9
 
-Die Zustandsabfrage laesst Home Assistant keine Protokollwarnungen mehr
-schreiben. In einer grossen Anlage kamen so tausende am Tag zusammen.
+Verlaeufe. Eine neue Darstellungsart fuer Zaehler wie den
+Stromverbrauch: ein Balkendiagramm der letzten 30 Tage oder 12 Monate,
+wie die Statistik-Karten in Home Assistant. Die Werte kommen aus der
+Langzeitstatistik von Home Assistant, die es nur ueber die
+WebSocket-Schnittstelle gibt - AmiHomeassist spricht dafuer jetzt ein
+kleines Stueck WebSocket. Eine Abfrage ist 1 bis 3 KB gross und dauert
+auf einem 68030 mit plipbox eine halbe Sekunde. Geholt wird beim Start,
+bei "Aktualisieren" und alle zehn Minuten.
+
+Gezeichnet wird von einer eigenen MUI-Klasse - keine Fremdklasse, keine
+FPU. Das Raster passt sich der Hoehe an, die Datumsbeschriftung der
+Breite. Im Editor "Verlauf (Tage)" oder "Verlauf (Monate)" als Art
+waehlen. Die Shell-Fassung listet dieselben Werte:
+
+    AmiHomeassistCLI HISTORY=sensor.strom MONTH
+
+Einfrieren beim Beenden behoben. 0.8 schaltete ueber die C-Bibliothek
+auf einen groesseren Stapel um; von der Workbench gestartet fror der
+Amiga beim Beenden hart ein, ohne Guru. Jetzt schaltet das Programm
+selbst um und vor dem Ende selbst zurueck. Wer 0.8 benutzt, sollte
+wechseln.
+
+Editor und Hauptfenster zeigen dieselbe Seite: der Editor oeffnet dort,
+wo man gerade ist, und nach dem Schliessen steht man dort, wo man
+zuletzt gearbeitet hat. "Aktualisieren" springt nicht mehr an den
+Anfang.
+
+AUSSERDEM SEIT 0.8
+
+Beschriftungen rechtsbuendig mit Doppelpunkt, gleich breite Knoepfe in
+Spalten, eine Einstellung fuer "unknown"/"unavailable" (anzeigen,
+ausgrauen, ausblenden), Ziehen und Ablegen im Editor und die
+Stapel-Korrektur fuer echte 68030.
 
 DARSTELLUNGSARTEN
 
@@ -163,6 +212,8 @@ DARSTELLUNGSARTEN
   Thermostat  climate - Ist- und Solltemperatur, kaelter, waermer und
               die Betriebsart
   Text        eine Zwischenueberschrift
+  Verlauf     sensor - Balkendiagramm der letzten 30 Tage oder 12
+              Monate, fuer Sensoren mit Langzeitstatistik (state_class)
 
 Beim Hinzufuegen schlaegt das Programm eine Art vor, aus Domain und
 Geraeteklasse; im Editor laesst sie sich aendern.

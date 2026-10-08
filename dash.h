@@ -23,7 +23,8 @@
 #define WK_COVER   4    /* cover - Auf, Stop, Zu */
 #define WK_TEXT    5    /* nur Beschriftung, ohne Entitaet */
 #define WK_CLIMATE 6    /* climate - Ist, Soll, waermer/kaelter, Betriebsart */
-#define WK_COUNT   7
+#define WK_CHART   7    /* sensor - Balkendiagramm aus der Langzeitstatistik */
+#define WK_COUNT   8
 
 #define TITLE_LEN  40
 
@@ -31,7 +32,9 @@ struct Widget {
     int  kind;
     char id[ID_LEN];            /* leer bei WK_TEXT */
     char label[TITLE_LEN];
-    long min, max;              /* nur WK_GAUGE */
+    long min, max;              /* WK_GAUGE: Bereich.
+                                 * WK_CHART: min = Zeitraum (AH_PERIOD_*),
+                                 * max = Anzahl Balken */
 };
 
 struct Group {
@@ -53,6 +56,9 @@ struct Dash {
 };
 
 void dash_init(struct Dash *d);
+
+/* Zieht Zeitraum und Balkenzahl eines Diagramms auf gueltige Werte. */
+void dash_chart_defaults(struct Widget *w);
 void dash_free(struct Dash *d);
 
 struct Page   *dash_add_page(struct Dash *d, const char *title, int icon);
@@ -70,6 +76,12 @@ struct Widget *group_insert_widget(struct Group *g, int pos, int kind,
  * etwas Sinnvolles auf dem Schirm, ohne dass jemand einen Editor bedienen
  * muss. */
 void dash_generate(struct Dash *d, struct Catalog *c);
+
+/* Uebernimmt eine geaenderte Geraeteauswahl in die BESTEHENDEN Dashboards:
+ * Abgewaehltes verschwindet, neu Gewaehltes kommt auf die Seite seines
+ * Raums in den Kasten seiner Art (beides wird angelegt, wenn es fehlt).
+ * Alles andere bleibt, wie es im Editor angeordnet wurde. */
+void dash_merge(struct Dash *d, struct Catalog *c, int *added, int *removed);
 
 /* Schlaegt die Darstellung fuer eine Entitaet vor - aus Domain, Einheit und
  * Geraeteklasse. */

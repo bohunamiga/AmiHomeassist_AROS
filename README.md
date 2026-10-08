@@ -5,7 +5,13 @@ Lights, sockets, blinds, climate and sensors arranged on dashboards of your
 own, with a MUI interface: dashboards in a sidebar on the left, the chosen
 page on the right.
 
-![AmiHomeassist on Workbench 3.2](docs/screenshot.png)
+![AmiHomeassist on an A500 with a TF536 68030, Workbench 3.2](docs/screenshot.png)
+
+Since 0.9, energy meters and other sensors with long-term statistics can
+be shown as bar charts of the last 30 days or 12 months, drawn by a MUI
+class of its own:
+
+![History charts in AmiHomeassist 0.9](docs/charts.png)
 
 - AmigaOS 2.0+, 68020 or better, no FPU needed
 - MUI 3.8+ with NList.mcc / NListview.mcc
@@ -17,8 +23,10 @@ page on the right.
 [comm/tcp/AmiHomeassist-0.6](https://aminet.net/package/comm/tcp/AmiHomeassist-0.6)
 and under [Releases](../../releases).
 
-The full user documentation (English and German) is in
-[README.txt](README.txt), the version history in
+The full user documentation is the AmigaGuide manual
+[guide/AmiHomeassist.guide](guide/AmiHomeassist.guide) (English and
+German, with screenshots in `guide/Pics/`); a shorter text version is
+[README.txt](README.txt), the version history
 [Changelog.txt](Changelog.txt).
 
 ## Building
@@ -46,8 +54,9 @@ in a `Source` drawer. In this repository they are at the top level.
 
 ## History
 
-This repository was created after the fact from the released Aminet
-archives; each release is one commit, tagged `v0.5`, `v0.6`, `v0.7`.
+Up to 0.7 this repository was created after the fact from the released
+Aminet archives; each of those releases is one commit, tagged `v0.5`,
+`v0.6`, `v0.7`. From 0.8 on, releases are made here first (`v0.8`, `v0.9`, `v0.9.1`).
 0.5 was still built with SAS/C on the Amiga (`mk`), from 0.6 on it is
 cross-compiled.
 

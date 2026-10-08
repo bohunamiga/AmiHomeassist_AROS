@@ -1,8 +1,9 @@
-AmiHomeassist 0.7
-=================
+AmiHomeassist 0.9.1
+===================
 
   English below, deutsche Fassung weiter unten.
-  Deutsche Fassung ab "AmiHomeassist 0.7 - Deutsch".
+  Deutsche Fassung ab "AmiHomeassist 0.9.1 - Deutsch".
+  The full manual with pictures is AmiHomeassist.guide.
 
 
 ENGLISH
@@ -47,8 +48,11 @@ SETTING UP
   2. Start AmiHomeassist. On the first run the settings window opens by
      itself. Enter the address and the token, then Save.
 
-         Address      http://homeassistant:8123
-         Interval     how often states are fetched
+         Address         http://homeassistant:8123
+         Interval        how often states are fetched
+         Unknown values  what to do with devices that report
+                         "unknown" or "unavailable": show them,
+                         grey them out (the default) or hide them
 
      Over a slow link use 15 or 30 seconds.
 
@@ -63,14 +67,21 @@ THE THREE WINDOWS
 
   Device list   the main window with the sidebar
 
-  Select        which devices the program knows at all. "Suggest"
+  Select        which devices the program knows at all. A search
+                field narrows the list; All, None and Suggest act on
+                what is shown. Apply adds and removes devices on your
+                pages and keeps your arrangement. "Suggest"
                 hides the usual ballast: the per-device
                 internet-access switches of a Fritzbox, the Dnd lamps
                 of smart sockets, technical helper switches and
                 anything unavailable.
 
   Edit          create pages, form groups, add devices, choose the
-                widget kind and the icon, reorder.
+                widget kind and the icon, reorder. To reorder, drag
+                with the mouse: a device into another place or group,
+                a whole group by its heading, a page in the page list.
+                Up and Down do the same from the keyboard. Nothing is
+                written to disk until you press Save.
 
 
 WIDGET KINDS
@@ -83,9 +94,15 @@ WIDGET KINDS
   Thermostat  climate - room and target temperature, warmer, colder,
               and the operating mode
   Text        a caption
+  History     sensor - bar chart of the last 30 days or 12 months,
+              from Home Assistant's long-term statistics
 
   When you add a device the program suggests a kind, from its domain
   and device class. The editor lets you change it.
+
+  History only works for sensors that keep long-term statistics, that
+  is sensors with a state_class - energy meters in kWh, for instance.
+  Anything else gives an empty chart.
 
 
 LANGUAGES
@@ -129,6 +146,7 @@ FILES
   ENVARC:AmiHomeassist/Dashboards.prefs      the pages
 
   All three are plain text and can be repaired by hand if need be.
+  Before each save the old file is kept as .bak.
 
   The token is stored in the clear and grants full access to your Home
   Assistant. On your own network that is acceptable, but you should
@@ -144,6 +162,9 @@ FROM THE SHELL
   AmiHomeassistCLI ON=light.kueche
   AmiHomeassistCLI OFF=switch.beamer
   AmiHomeassistCLI TOGGLE=light.tisch
+  AmiHomeassistCLI HISTORY=sensor.energy          last 30 days
+  AmiHomeassistCLI HISTORY=sensor.energy MONTH    last 12 months
+  AmiHomeassistCLI HISTORY=sensor.energy COUNT=7  last 7 days
 
   Setting up works without the interface too:
 
@@ -210,14 +231,16 @@ BUILDING IT YOURSELF
   into locale_strings.h. That header is included ready-made, so a build
   works without Python.
 
-  Tested on an A500 with PiStorm (Emu68), OS 3.2.3, MUI 3.8. A real
-  68030 is still to come.
+  Tested on an A500 with PiStorm (Emu68) and on an A500 with a
+  Terrible Fire TF536 (68030, no FPU), both OS 3.2, MUI 3.8.
 
 
 ================================================================
 
-AmiHomeassist 0.7 - Deutsch
-===========================
+AmiHomeassist 0.9.1 - Deutsch
+=============================
+
+  Die ausfuehrliche Anleitung mit Bildern ist AmiHomeassist.guide.
 
 Home Assistant vom Amiga aus: Lampen, Steckdosen, Rollaeden und
 Sensoren nach eigenen Dashboards geordnet, mit MUI-Oberflaeche.
@@ -261,8 +284,11 @@ EINRICHTEN
   2. AmiHomeassist starten. Beim ersten Mal geht das Einstellungsfenster
      von selbst auf. Adresse und Token eintragen, Speichern.
 
-         Adresse      http://homeassistant:8123
-         Abstand (s)  wie oft der Zustand geholt wird
+         Adresse            http://homeassistant:8123
+         Abstand (s)        wie oft der Zustand geholt wird
+         Unbekannte Werte   was mit Geraeten geschieht, die "unknown"
+                            oder "unavailable" melden: anzeigen,
+                            ausgrauen (Voreinstellung) oder ausblenden
 
      Ueber eine langsame Leitung ruhig 15 oder 30 Sekunden nehmen.
 
@@ -278,14 +304,23 @@ DIE DREI FENSTER
 
   Geraeteliste   das Hauptfenster mit der Seitenleiste
 
-  Auswahl        welche Geraete das Programm ueberhaupt kennt.
+  Auswahl        welche Geraete das Programm ueberhaupt kennt. Ein
+                 Suchfeld grenzt die Liste ein; Alle, Keine und
+                 Vorschlag wirken auf das Angezeigte. Uebernehmen
+                 ergaenzt und entfernt Geraete auf deinen Seiten und
+                 laesst deine Anordnung stehen.
                  "Vorschlag" blendet den ueblichen Ballast aus: die
                  Internet-access-Schalter einer Fritzbox, die
                  Dnd-Laempchen von Steckdosen, technische
                  Nebenschalter und alles Unerreichbare.
 
   Bearbeiten     Seiten anlegen, Gruppen bilden, Geraete hineinnehmen,
-                 Darstellung und Symbol waehlen, umsortieren.
+                 Darstellung und Symbol waehlen, umsortieren. Zum
+                 Umsortieren mit der Maus ziehen: ein Geraet an eine
+                 andere Stelle oder in einen anderen Kasten, einen
+                 ganzen Kasten an seiner Ueberschrift, eine Seite in der
+                 Seitenliste. Hoch und Runter tun dasselbe per Tastatur.
+                 Auf die Platte kommt erst etwas mit Speichern.
 
 
 DARSTELLUNGSARTEN
@@ -299,9 +334,15 @@ DARSTELLUNGSARTEN
   Thermostat  climate - Ist- und Solltemperatur, waermer, kaelter und
               die Betriebsart
   Text        eine Zwischenueberschrift
+  Verlauf     sensor - Balkendiagramm der letzten 30 Tage oder 12
+              Monate, aus der Langzeitstatistik von Home Assistant
 
   Beim Hinzufuegen schlaegt das Programm eine Art vor, aus Domain und
   Geraeteklasse. Im Editor laesst sie sich aendern.
+
+  Verlauf geht nur mit Sensoren, die eine Langzeitstatistik fuehren,
+  also mit einer state_class - Stromzaehler in kWh zum Beispiel. Alles
+  andere ergibt ein leeres Diagramm.
 
 
 SPRACHEN
@@ -349,6 +390,7 @@ DATEIEN
   ENVARC:AmiHomeassist/Dashboards.prefs      die Seiten
 
   Alle drei sind Text und notfalls von Hand zu reparieren.
+  Vor jedem Speichern bleibt die alte Datei als .bak liegen.
 
   Der Token steht im Klartext und gilt uneingeschraenkt fuer deine
   Home-Assistant-Installation. Im eigenen Netz ist das vertretbar, aber
@@ -365,6 +407,9 @@ AUS DER SHELL
   AmiHomeassistCLI ON=light.kueche
   AmiHomeassistCLI OFF=switch.beamer
   AmiHomeassistCLI TOGGLE=light.tisch
+  AmiHomeassistCLI HISTORY=sensor.strom           letzte 30 Tage
+  AmiHomeassistCLI HISTORY=sensor.strom MONTH     letzte 12 Monate
+  AmiHomeassistCLI HISTORY=sensor.strom COUNT=7   letzte 7 Tage
 
   Einrichten geht auch ohne Oberflaeche:
 
@@ -441,6 +486,9 @@ SELBER UEBERSETZEN
   locale.py macht aus strings.cd und catalogs/*.ct die Kataloge und die
   Datei locale_strings.h. Diese Datei liegt fertig bei, ein Bau kommt
   also ohne Python aus.
+
+  Getestet auf einem A500 mit PiStorm (Emu68) und auf einem A500 mit
+  Terrible Fire TF536 (68030, ohne FPU), beide OS 3.2, MUI 3.8.
 
 
   Hinweis zur Fehlersuche: eine ausfuehrliche Beschreibung der Fallen,

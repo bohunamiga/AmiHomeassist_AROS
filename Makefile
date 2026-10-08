@@ -44,9 +44,9 @@ AMIGALIB = $(TOOLCHAIN)/m68k-amigaos/lib/libamiga.a
 # die variadischen Argumente weg, und jedes MUI-Objekt bekommt eine
 # Muell-Tagliste.
 GUI_OBJS = amiha.o dash.o edit.o gui.o icons.o icons_mdi.o logo.o muistubs.o \
-           amiloc.o \
-           build/DoMethod.o
-CLI_OBJS = amiha.o dash.o cli.o amiloc.o
+           amiloc.o chart.o stack.o \
+           build/DoMethod.o build/DoSuperMethod.o
+CLI_OBJS = amiha.o dash.o cli.o amiloc.o stack.o
 
 all: locale_strings.h AmiHomeassist AmiHomeassistCLI
 
@@ -69,6 +69,11 @@ AmiHomeassistCLI: $(CLI_OBJS)
 build/DoMethod.o: $(AMIGALIB)
 	@mkdir -p build
 	cd build && $(AR) x $(AMIGALIB) DoMethod.o
+
+# DoSuperMethodA() fuer die eigene Diagrammklasse (chart.c), ebenso einzeln.
+build/DoSuperMethod.o: $(AMIGALIB)
+	@mkdir -p build
+	cd build && $(AR) x $(AMIGALIB) DoSuperMethod.o
 
 # Harte Zusicherung fuers Zielprofil: kein einziger FPU-Opcode.
 #

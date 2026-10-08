@@ -16,11 +16,11 @@ A_lle
 MSG_BT_NONE
 _Keine
 MSG_BT_APPLY
-_Uebernehmen
+_Übernehmen
 MSG_BT_SAVE
 _Speichern
 MSG_BT_CLOSE
-S_chliessen
+S_chließen
 MSG_WIN_SELECT
 Geräte auswählen
 MSG_WIN_PREFS
@@ -166,7 +166,7 @@ MSG_FILE_DASH_HEAD
 MSG_FILE_DASH_NOTE
 ; Vom Editor geschrieben. Von Hand änderbar, wenn nötig:\n
 MSG_FILE_DASH_KINDS
-; Arten: toggle lamp value gauge cover text\n\n
+; Arten: toggle lamp value gauge cover text climate\n;   chart <entity> <label> <0 = Tage, 1 = Monate> <Balken>\n\n
 MSG_ED_TITLE
 Dashboards bearbeiten
 MSG_ED_ADDDEVICE
@@ -323,3 +323,35 @@ MSG_HVAC_FAN
 lüften
 MSG_HVAC_HEATCOOL
 heizen/kühlen
+MSG_LBL_UNKNOWN
+_Unbekannte Werte
+MSG_UNK_SHOW
+anzeigen
+MSG_UNK_DIM
+ausgrauen
+MSG_UNK_HIDE
+ausblenden
+MSG_FILE_PREFS_UNKNOWN
+\n; Unbekannte oder nicht verfügbare Werte: 0 anzeigen, 1 ausgrauen, 2 ausblenden\n
+MSG_CLI_NOHISTORY
+Keine Statistik für diesen Sensor. Stimmt der Name, und hat er eine state_class?\n
+MSG_KIND_CHART
+Verlauf (Tage)
+MSG_GROUP_CHARTS
+Verlauf
+MSG_CHART_MONTHS
+Jan Feb Mär Apr Mai Jun Jul Aug Sep Okt Nov Dez
+MSG_CHART_DAY
+%ld. %s
+MSG_CHART_EMPTY
+Keine Daten
+MSG_KIND_CHART_MONTH
+Verlauf (Monate)
+MSG_ED_LBL_FIND
+_Suche
+MSG_ASK_MANY
+Du hast %ld Geräte gewählt.\nMehr als etwa 100 machen den Amiga sehr langsam.\n\nTrotzdem übernehmen?
+MSG_ASK_MANY_BT
+_Übernehmen|_Abbrechen
+MSG_STATUS_MERGED
+%ld hinzugefügt, %ld entfernt - deine Seiten bleiben erhalten

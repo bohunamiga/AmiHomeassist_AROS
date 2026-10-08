@@ -166,7 +166,7 @@ MSG_FILE_DASH_HEAD
 MSG_FILE_DASH_NOTE
 ; Escrito por el editor. Editable a mano si hace falta:\n
 MSG_FILE_DASH_KINDS
-; Tipos: toggle lamp value gauge cover text\n\n
+; Tipos: toggle lamp value gauge cover text climate\n;   chart <entity> <label> <0 = días, 1 = meses> <barras>\n\n
 MSG_ED_TITLE
 Editar paneles
 MSG_ED_ADDDEVICE
@@ -323,3 +323,35 @@ MSG_HVAC_FAN
 ventilar
 MSG_HVAC_HEATCOOL
 frío/calor
+MSG_LBL_UNKNOWN
+Valores _desconocidos
+MSG_UNK_SHOW
+mostrar
+MSG_UNK_DIM
+en gris
+MSG_UNK_HIDE
+ocultar
+MSG_FILE_PREFS_UNKNOWN
+\n; Valores desconocidos o no disponibles: 0 mostrar, 1 en gris, 2 ocultar\n
+MSG_CLI_NOHISTORY
+No hay estadísticas para este sensor. ¿Es correcto el nombre y tiene state_class?\n
+MSG_KIND_CHART
+Historial (días)
+MSG_GROUP_CHARTS
+Historial
+MSG_CHART_MONTHS
+ene feb mar abr may jun jul ago sep oct nov dic
+MSG_CHART_DAY
+%ld %s
+MSG_CHART_EMPTY
+Sin datos
+MSG_KIND_CHART_MONTH
+Historial (meses)
+MSG_ED_LBL_FIND
+_Buscar
+MSG_ASK_MANY
+Has seleccionado %ld dispositivos.\nMás de unos 100 hacen el Amiga muy lento.\n\n¿Aplicar de todos modos?
+MSG_ASK_MANY_BT
+_Aplicar|_Cancelar
+MSG_STATUS_MERGED
+%ld añadidos, %ld quitados - tus páginas se mantienen

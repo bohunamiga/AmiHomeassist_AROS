@@ -194,7 +194,7 @@ MSG_FILE_DASH_HEAD (//)
 MSG_FILE_DASH_NOTE (//)
 ; Written by the editor. Edit by hand if you must:\n
 MSG_FILE_DASH_KINDS (//)
-; Kinds: toggle lamp value gauge cover text\n\n
+; Kinds: toggle lamp value gauge cover text climate\n;   chart <entity> <label> <0 = days, 1 = months> <bars>\n\n
 
 ; ============================================================ edit.c
 MSG_ED_TITLE (//)
@@ -357,3 +357,35 @@ MSG_HVAC_FAN (//)
 fan
 MSG_HVAC_HEATCOOL (//)
 heat/cool
+MSG_LBL_UNKNOWN (//)
+_Unknown values
+MSG_UNK_SHOW (//)
+show
+MSG_UNK_DIM (//)
+grey out
+MSG_UNK_HIDE (//)
+hide
+MSG_FILE_PREFS_UNKNOWN (//)
+\n; Unknown or unavailable values: 0 show, 1 grey out, 2 hide\n
+MSG_CLI_NOHISTORY (//)
+No statistics for this sensor. Is the name right, and does it have a state_class?\n
+MSG_KIND_CHART (//)
+History (days)
+MSG_GROUP_CHARTS (//)
+History
+MSG_CHART_MONTHS (//)
+Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec
+MSG_CHART_DAY (//)
+%ld %s
+MSG_CHART_EMPTY (//)
+No data
+MSG_KIND_CHART_MONTH (//)
+History (months)
+MSG_ED_LBL_FIND (//)
+_Search
+MSG_ASK_MANY (//)
+You have selected %ld devices.\nMore than about 100 make the Amiga very slow.\n\nApply anyway?
+MSG_ASK_MANY_BT (//)
+_Apply|_Cancel
+MSG_STATUS_MERGED (//)
+%ld added, %ld removed - your pages are kept

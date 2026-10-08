@@ -51,6 +51,8 @@ typedef ULONG IPTR;
 #include "dash.h"
 #include "icons.h"
 #include "edit.h"
+#include "chart.h"
+#include "stack.h"
 
 extern struct DosLibrary *DOSBase;
 
@@ -62,11 +64,12 @@ struct IntuitionBase *IntuitionBase = NULL;
 struct Library *MUIMasterBase = NULL;
 #endif
 
-const char *VERSTAG = "$VER: AmiHomeassist 0.7 (1.9.2026)";
+const char *VERSTAG = "$VER: AmiHomeassist " AH_VERSION " (" AH_DATE ")";
 
 enum {
     ID_REFRESH = 1, ID_PAGE,
     ID_OPEN_SEL, ID_SEL_CLICK, ID_SEL_ALL, ID_SEL_NONE, ID_SEL_SUGGEST,
+    ID_SEL_FIND, ID_SEL_CLOSE,
     ID_SEL_APPLY,
     ID_OPEN_PREFS, ID_PREFS_SAVE, ID_OPEN_EDIT,
     ID_WIDGET = 1000            /* + laufende Nummer des Bedienelements */
@@ -74,8 +77,16 @@ enum {
 
 static Object *app;
 static Object *win, *lst_pages, *grp_pages, *txt_status;
-static Object *win_sel, *lst_sel, *txt_sel;
+static Object *win_sel, *lst_sel, *txt_sel, *str_selfind;
+
+/* Zeile der Auswahlliste -> Katalogeintrag. Mit Suchbegriff zeigt die
+ * Liste nur einen Teil des Katalogs. */
+#define SEL_WARN 100            /* ab hier fragt "Uebernehmen" nach */
+static int *g_selmap = NULL;
+static int  g_selmap_cap = 0;
+static int  g_selrows = 0;
 static Object *win_prefs, *str_host, *str_token, *str_poll, *txt_prefs;
+static Object *cyc_unknown;
 static Object *img_side[MDI_COUNT];
 static Object *img_sel[IMG_COUNT];
 
@@ -83,6 +94,7 @@ static struct Prefs    g_prefs;
 static struct Catalog  g_cat;
 static struct Dash     g_dash;
 static BOOL            g_have_prefs = FALSE;
+
 
 /* Ein Bedienelement auf einer Seite, mit dem, was zum Nachfuehren noetig ist. */
 struct WUI {
@@ -96,6 +108,13 @@ struct WUI {
     int            lastcur;     /* nur Heizung: Ist und Soll, damit eine  */
     int            lasttgt;     /* Aenderung um ein halbes Grad auffaellt */
     Object        *ctl2;        /* nur Heizung: der Knopf mit der Betriebsart */
+    Object        *row;         /* die ganze Zeile - zum Ausgrauen/Ausblenden */
+    Object        *box;         /* der Kasten, in dem die Zeile steht */
+    int            box_fixed;   /* Zeilen im Kasten ohne Geraet (Text, fehlt) */
+    BOOL           dimmed;      /* was zuletzt gesetzt wurde - MUI nur bei */
+    BOOL           hidden;      /* einer Aenderung anfassen, sonst flackert */
+    BOOL           box_hidden;  /* nur im ersten Eintrag eines Kastens */
+    char           info[STATE_LEN + UNIT_LEN + 8];  /* nur Balken, siehe unten */
 };
 
 static struct WUI *g_wui = NULL;
@@ -150,6 +169,13 @@ static BOOL is_lamp(const struct Entity *e)
 static const char *binary_text(const struct Entity *e)
 {
     BOOL on = is_on(e);
+
+    /* Nur "on" und "off" lassen sich uebersetzen. "unavailable" als "zu"
+     * anzuzeigen hiesse, ein Fenster fuer geschlossen zu erklaeren, von dem
+     * man gar nichts weiss. */
+    if (stricmp(e->state, "on") != 0 && stricmp(e->state, "off") != 0) {
+        return e->state;
+    }
 
     if (strcmp(e->dclass, "window") == 0 || strcmp(e->dclass, "door") == 0 ||
         strcmp(e->dclass, "opening") == 0 ||
@@ -286,6 +312,26 @@ static BOOL sel_ensure(int n)
     return TRUE;
 }
 
+/* Platz fuer n Eintraege, BEVOR ein Objekt gebaut wird. Waechst die
+ * Tabelle waehrend des Aufbaus, verschiebt realloc sie - und die Balken
+ * halten einen Zeiger auf ihren Text (info) mitten in der Tabelle. */
+static BOOL wui_reserve(int n)
+{
+    struct WUI *nw;
+
+    if (n <= g_wui_cap) {
+        return TRUE;
+    }
+    n += 16;                        /* etwas Luft fuer den Editor */
+    nw = (struct WUI *)realloc(g_wui, (size_t)n * sizeof(struct WUI));
+    if (!nw) {
+        return FALSE;
+    }
+    g_wui = nw;
+    g_wui_cap = n;
+    return TRUE;
+}
+
 static BOOL wui_add(struct Widget *w, struct Entity *e, Object *ctl,
                     Object *img_off, Object *img_on)
 {
@@ -321,6 +367,9 @@ static BOOL wui_add(struct Widget *w, struct Entity *e, Object *ctl,
 static Object *make_image_ex(const struct IconDef *def, const ULONG *colors,
                              BOOL clickable);
 static Object *make_image(const struct IconDef *def, const ULONG *colors);
+static void unknown_apply(BOOL in_change);
+static void charts_refresh(BOOL fetch);
+static void chart_cache_clear(void);
 
 /* Der Schalter: zwei gezeichnete Bilder in einer Seitengruppe. Umschalten
  * heisst dann nur, die sichtbare Seite zu wechseln - kein Austauschen von
@@ -350,15 +399,150 @@ static Object *switch_obj(BOOL on, Object **img_off, Object **img_on)
     return grp;
 }
 
+/* ------------------------------------------------------------------ */
+/* Spalten                                                             */
+/* ------------------------------------------------------------------ */
+
+/* Eine Seite liest sich wie ein MUI-Formular: links die Beschriftung,
+ * rechtsbuendig und mit Doppelpunkt, rechts der Wert, dahinter die Knoepfe.
+ * Damit die Spalten ueber alle Kaesten einer Seite hinweg fluchten, bekommt
+ * jede Beschriftung dieselbe feste Breite - die der laengsten auf der Seite -
+ * und jeder Knopf dieselbe Breite wie der breiteste Knopftext.
+ *
+ * MUIA_FixWidthTxt merkt sich nur den Zeiger und misst bei jedem Layout neu.
+ * Die Mustertexte muessen deshalb so lange leben wie die Objekte: je Seite
+ * einer in g_lblfix, fuer die Knoepfe einer in g_btnfix. */
+#define LBLFIX_LEN (TITLE_LEN + 4)
+static char *g_lblfix = NULL;
+static int   g_lblfix_cap = 0;
+#define LBLFIX(i) (g_lblfix + (long)(i) * LBLFIX_LEN)
+
+static char        g_btnfix[STATE_LEN + 4];
+static const char *g_curlbl = "";   /* Muster der Seite, die gerade entsteht */
+
+/* Knoepfe je Zeile bei Rollladen und Heizung - fuer den Platzhalter in
+ * Zeilen ohne Knoepfe, damit die Wertspalte im Kasten buendig endet. */
+#define ROW_BUTTONS 3
+
+static BOOL lblfix_ensure(int n)
+{
+    if (n <= g_lblfix_cap) {
+        return TRUE;
+    }
+    if (g_lblfix) {
+        free(g_lblfix);
+    }
+    g_lblfix = malloc((size_t)n * LBLFIX_LEN);
+    g_lblfix_cap = g_lblfix ? n : 0;
+    return (BOOL)(g_lblfix != NULL);
+}
+
+/* Laengste Beschriftung der Seite, nach Zeichen gezaehlt. Das "M" davor ist
+ * Luft fuer Proportionalschriften, in denen ein kuerzerer Text breiter sein
+ * kann - bei rechtsbuendigen Beschriftungen landet es als Rand links. */
+static void lblfix_for_page(const struct Page *p, char *out)
+{
+    size_t best = 0;
+    int j, k;
+
+    strcpy(out, "M:");
+    for (j = 0; j < p->count; j++) {
+        for (k = 0; k < p->g[j].count; k++) {
+            const struct Widget *w = &p->g[j].w[k];
+            size_t n = strlen(w->label);
+
+            if (w->kind != WK_TEXT && w->kind != WK_CHART && n > best) {
+                best = n;
+                sprintf(out, "M%s:", w->label);
+            }
+        }
+    }
+}
+
+/* Breitester Knopftext: Auf, Stop, Zu und alle Betriebsarten der Heizung.
+ * Der Knopf der Betriebsart wechselt seinen Text zur Laufzeit - mit fester
+ * Breite springt dabei nichts. */
+static void btnfix_init(void)
+{
+    static const short MSG[] = {
+        MSG_COVER_UP, MSG_COVER_STOP, MSG_COVER_DOWN,
+        MSG_HVAC_OFF, MSG_HVAC_HEAT, MSG_HVAC_COOL, MSG_HVAC_AUTO,
+        MSG_HVAC_DRY, MSG_HVAC_FAN, MSG_HVAC_HEATCOOL
+    };
+    int i;
+
+    g_btnfix[0] = '\0';
+    for (i = 0; i < (int)(sizeof(MSG) / sizeof(MSG[0])); i++) {
+        const char *s = GetStr(MSG[i]);
+
+        if (strlen(s) > strlen(g_btnfix) && strlen(s) < sizeof(g_btnfix)) {
+            strcpy(g_btnfix, s);
+        }
+    }
+}
+
+/* Die Beschriftung. Der unsichtbare Rahmen (FramePhantomHoriz) gibt ihr
+ * dieselbe Hoehe und Grundlinie wie dem umrahmten Wert daneben. */
 static Object *label_obj(const char *text)
 {
+    char buf[TITLE_LEN + 2];
+
+    sprintf(buf, "%s:", text);
     return MUI_NewObject(MUIC_Text,
-        MUIA_Text_Contents, (char *)text,
-        MUIA_Text_PreParse, "\33l",
+        MUIA_Text_Contents,     buf,
+        MUIA_Text_PreParse,     "\33r",
+        MUIA_Frame,             MUIV_Frame_Text,
+        MUIA_FramePhantomHoriz, TRUE,
+        MUIA_FixWidthTxt,       (char *)g_curlbl,
         TAG_DONE);
 }
 
-static Object *build_widget(struct Widget *w)
+/* Ein Knopf mit fester Breite - wie MUIO_Button, nur dass dort keine
+ * Breite vorzugeben ist. */
+static Object *fix_button(const char *text)
+{
+    return MUI_NewObject(MUIC_Text,
+        MUIA_Text_Contents, (char *)text,
+        MUIA_Text_PreParse, "\33c",
+        MUIA_Frame,         MUIV_Frame_Button,
+        MUIA_Background,    MUII_ButtonBack,
+        MUIA_Font,          MUIV_Font_Button,
+        MUIA_InputMode,     MUIV_InputMode_RelVerify,
+        MUIA_CycleChain,    1,
+        MUIA_FixWidthTxt,   (char *)g_btnfix,
+        TAG_DONE);
+}
+
+/* Unsichtbarer Ersatz fuer die Knopfreihe, gleich breit. */
+static Object *button_pad(void)
+{
+    Object *grp = MUI_NewObject(MUIC_Group,
+        MUIA_Group_Horiz, TRUE,
+        MUIA_Group_Child, MUI_NewObject(MUIC_Rectangle,
+            MUIA_FixWidthTxt, (char *)g_btnfix, TAG_DONE),
+        TAG_DONE);
+    int i;
+
+    for (i = 1; grp && i < ROW_BUTTONS; i++) {
+        DoMethod(grp, OM_ADDMEMBER, MUI_NewObject(MUIC_Rectangle,
+            MUIA_FixWidthTxt, (char *)g_btnfix, TAG_DONE));
+    }
+    return grp;
+}
+
+/* Die Knopfreihe als eigene Gruppe - so hat sie genau denselben Aufbau wie
+ * button_pad(), und beides ist gleich breit. */
+static Object *button_row(Object *a, Object *b, Object *c)
+{
+    return MUI_NewObject(MUIC_Group,
+        MUIA_Group_Horiz, TRUE,
+        MUIA_Group_Child, a,
+        MUIA_Group_Child, b,
+        MUIA_Group_Child, c,
+        TAG_DONE);
+}
+
+static Object *build_widget(struct Widget *w, BOOL pad)
 {
     struct Entity *e = w->id[0] ? catalog_find(&g_cat, w->id) : NULL;
     Object *ctl = NULL;
@@ -382,24 +566,48 @@ static Object *build_widget(struct Widget *w)
             MUIA_Group_Child, label_obj(w->label),
             MUIA_Group_Child, MUI_NewObject(MUIC_Text,
                 MUIA_Text_Contents, (char *)GetStr(MSG_STATE_MISSING),
+                MUIA_Frame,         MUIV_Frame_Text,
                 TAG_DONE),
+            pad ? MUIA_Group_Child : TAG_IGNORE, pad ? button_pad() : NULL,
             TAG_DONE);
     }
 
     switch (w->kind) {
+        case WK_CHART:
+            /* Das Diagramm braucht die ganze Breite - die Beschriftung
+             * steht darueber statt links daneben. Die Werte kommen erst
+             * mit charts_refresh(), bis dahin zeigt es "keine Daten". */
+            ctl = chart_new();
+            if (!ctl) {
+                return NULL;
+            }
+            row = MUI_NewObject(MUIC_Group,
+                MUIA_Group_Child, MUI_NewObject(MUIC_Text,
+                    MUIA_Text_Contents, w->label,
+                    MUIA_Text_PreParse, "\33l",
+                    TAG_DONE),
+                MUIA_Group_Child, ctl,
+                TAG_DONE);
+            if (row) {
+                wui_add(w, e, ctl, NULL, NULL);
+            }
+            return row;
+
         case WK_TOGGLE: {
             Object *sym;
 
             ctl = switch_obj(is_on(e), &img_off, &img_on);
             sym = make_image(is_lamp(e) ? &icon_lamp : &icon_plug,
                              icon_colors);
-            /* Schalter, Sinnbild, Name - dieselbe Anordnung wie frueher in
-             * der Geraeteliste, nur mit echten Objekten. */
+            /* Name, Schalter, Sinnbild - der Name steht in derselben
+             * Spalte wie bei allen anderen Zeilen, der Rest links
+             * angeschlagen. */
             row = MUI_NewObject(MUIC_Group,
                 MUIA_Group_Horiz, TRUE,
+                MUIA_Group_Child, label_obj(w->label),
                 MUIA_Group_Child, ctl,
                 MUIA_Group_Child, sym,
-                MUIA_Group_Child, label_obj(w->label),
+                MUIA_Group_Child, MUI_NewObject(MUIC_Rectangle, TAG_DONE),
                 TAG_DONE);
             if (row) {
                 wui_add(w, e, ctl, img_off, img_on);
@@ -427,9 +635,9 @@ static Object *build_widget(struct Widget *w)
             break;
 
         case WK_COVER: {
-            Object *b_up   = MUI_MakeObject(MUIO_Button, (char *)GetStr(MSG_COVER_UP));
-            Object *b_stop = MUI_MakeObject(MUIO_Button, (char *)GetStr(MSG_COVER_STOP));
-            Object *b_down = MUI_MakeObject(MUIO_Button, (char *)GetStr(MSG_COVER_DOWN));
+            Object *b_up   = fix_button(GetStr(MSG_COVER_UP));
+            Object *b_stop = fix_button(GetStr(MSG_COVER_STOP));
+            Object *b_down = fix_button(GetStr(MSG_COVER_DOWN));
 
             /* Der Zustandstext zeigt offen/geschlossen/faehrt. */
             ctl = MUI_NewObject(MUIC_Text,
@@ -442,9 +650,7 @@ static Object *build_widget(struct Widget *w)
                 MUIA_Group_Horiz, TRUE,
                 MUIA_Group_Child, label_obj(w->label),
                 MUIA_Group_Child, ctl,
-                MUIA_Group_Child, b_up,
-                MUIA_Group_Child, b_stop,
-                MUIA_Group_Child, b_down,
+                MUIA_Group_Child, button_row(b_up, b_stop, b_down),
                 TAG_DONE);
             if (row) {
                 wui_add(w, e, ctl, NULL, NULL);
@@ -469,10 +675,9 @@ static Object *build_widget(struct Widget *w)
         }
 
         case WK_CLIMATE: {
-            Object *b_down = MUI_MakeObject(MUIO_Button, "-");
-            Object *b_up   = MUI_MakeObject(MUIO_Button, "+");
-            Object *b_mode = MUI_MakeObject(MUIO_Button,
-                                            (char *)hvac_text(e->state));
+            Object *b_down = fix_button("-");
+            Object *b_up   = fix_button("+");
+            Object *b_mode = fix_button(hvac_text(e->state));
 
             ctl = MUI_NewObject(MUIC_Text,
                 MUIA_Text_Contents, (char *)climate_text(e),
@@ -484,9 +689,7 @@ static Object *build_widget(struct Widget *w)
                 MUIA_Group_Horiz, TRUE,
                 MUIA_Group_Child, label_obj(w->label),
                 MUIA_Group_Child, ctl,
-                MUIA_Group_Child, b_down,
-                MUIA_Group_Child, b_up,
-                MUIA_Group_Child, b_mode,
+                MUIA_Group_Child, button_row(b_down, b_up, b_mode),
                 TAG_DONE);
             if (row) {
                 wui_add(w, e, ctl, NULL, NULL);
@@ -528,6 +731,7 @@ static Object *build_widget(struct Widget *w)
         MUIA_Group_Horiz, TRUE,
         MUIA_Group_Child, label_obj(w->label),
         MUIA_Group_Child, ctl,
+        pad ? MUIA_Group_Child : TAG_IGNORE, pad ? button_pad() : NULL,
         TAG_DONE);
 
     if (row) {
@@ -539,7 +743,8 @@ static Object *build_widget(struct Widget *w)
 static Object *build_group(struct Group *g)
 {
     Object *box;
-    int k;
+    BOOL pad = FALSE;
+    int k, first, fixed = 0;
 
     box = MUI_NewObject(MUIC_Group,
         MUIA_Frame,      MUIV_Frame_Group,
@@ -550,20 +755,43 @@ static Object *build_group(struct Group *g)
         return NULL;
     }
 
+    /* Hat der Kasten Zeilen mit Knoepfen, bekommen die anderen Zeilen
+     * einen gleich breiten Platzhalter - sonst ragen deren Werte ueber die
+     * Knoepfe hinaus, und die Wertspalte franst rechts aus. */
     for (k = 0; k < g->count; k++) {
-        Object *row = build_widget(&g->w[k]);
+        if (g->w[k].kind == WK_COVER || g->w[k].kind == WK_CLIMATE) {
+            pad = TRUE;
+        }
+    }
+
+    first = g_wui_count;
+    for (k = 0; k < g->count; k++) {
+        int before = g_wui_count;
+        Object *row = build_widget(&g->w[k], pad);
 
         if (row) {
             DoMethod(box, OM_ADDMEMBER, row);
+            if (g_wui_count > before) {
+                g_wui[g_wui_count - 1].row = row;
+            } else {
+                fixed++;            /* Text oder verschwundenes Geraet */
+            }
         }
+    }
+    for (k = first; k < g_wui_count; k++) {
+        g_wui[k].box = box;
+        g_wui[k].box_fixed = fixed;
     }
     return box;
 }
 
-static Object *build_page(struct Page *p)
+static Object *build_page(struct Page *p, char *lblfix)
 {
     Object *page;
     int j;
+
+    lblfix_for_page(p, lblfix);
+    g_curlbl = lblfix;
 
     page = MUI_NewObject(MUIC_Group, TAG_DONE);
     if (!page) {
@@ -614,7 +842,35 @@ static void pages_build(void)
     int i;
 
     DoMethod(grp_pages, MUIM_Group_InitChange);
+
+    /* Die Seitengruppe merkt sich die NUMMER der sichtbaren Seite. Wird
+     * die letzte Seite entfernt, waere diese Nummer nach dem Neuaufbau
+     * ungueltig, und MUI 3.8 griff ins Leere (Guru 8000 0008 beim
+     * Entfernen von "No room"). Deshalb vorher auf die erste Seite -
+     * solange es sie noch gibt. show_page() waehlt danach die richtige. */
+    set(grp_pages, MUIA_Group_ActivePage, 0);
     pages_clear();
+
+    /* Erst jetzt, nach dem Abraeumen: die alten Objekte zeigten noch auf
+     * die alten Mustertexte. */
+    if (g_btnfix[0] == '\0') {
+        btnfix_init();
+    }
+    if (!lblfix_ensure(g_dash.count > 0 ? g_dash.count : 1)) {
+        DoMethod(grp_pages, MUIM_Group_ExitChange);
+        return;
+    }
+    {
+        int n = 0, j, k;
+
+        for (i = 0; i < g_dash.count; i++) {
+            for (j = 0; j < g_dash.p[i].count; j++) {
+                n += g_dash.p[i].g[j].count;
+            }
+        }
+        (void)k;
+        wui_reserve(n);             /* alte Objekte sind schon weg */
+    }
 
     if (g_dash.count == 0) {
         DoMethod(grp_pages, OM_ADDMEMBER, MUI_NewObject(MUIC_Text,
@@ -623,14 +879,16 @@ static void pages_build(void)
             TAG_DONE));
     } else {
         for (i = 0; i < g_dash.count; i++) {
-            Object *page = build_page(&g_dash.p[i]);
+            Object *page = build_page(&g_dash.p[i], LBLFIX(i));
 
             if (page) {
                 DoMethod(grp_pages, OM_ADDMEMBER, page);
             }
         }
     }
+    unknown_apply(TRUE);
     DoMethod(grp_pages, MUIM_Group_ExitChange);
+    charts_refresh(FALSE);
 
     /* Bedienelemente melden sich mit ihrer laufenden Nummer zurueck. */
     for (i = 0; i < g_wui_count; i++) {
@@ -645,6 +903,30 @@ static void pages_build(void)
             }
         }
     }
+}
+
+/* Die Seite, die gerade zu sehen ist. */
+static int main_page(void)
+{
+    LONG n = 0;
+
+    get(lst_pages, MUIA_NList_Active, &n);
+    return (n >= 0 && n < g_dash.count) ? (int)n : 0;
+}
+
+/* Zeigt Seite n, in der Seitenleiste und rechts. Beides direkt, nicht ueber
+ * die Benachrichtigung der Liste - die kaeme erst nach dem naechsten
+ * Ereignis, und bis dahin stuende rechts die falsche Seite. */
+static void show_page(int n)
+{
+    if (g_dash.count == 0) {
+        return;
+    }
+    if (n < 0 || n >= g_dash.count) {
+        n = 0;
+    }
+    set(lst_pages, MUIA_NList_Active, (LONG)n);
+    set(grp_pages, MUIA_Group_ActivePage, (LONG)n);
 }
 
 static void sidebar_fill(void)
@@ -664,9 +946,6 @@ static void sidebar_fill(void)
                  MUIV_NList_Insert_Bottom);
     }
     set(lst_pages, MUIA_NList_Quiet, FALSE);
-    if (g_dash.count) {
-        set(lst_pages, MUIA_NList_Active, 0);
-    }
 }
 
 /* ------------------------------------------------------------------ */
@@ -706,8 +985,14 @@ static void widgets_update(void)
                 if (v < 0) {
                     v = 0;
                 }
-                value_text(u->e, buf, sizeof(buf));
-                set(u->ctl, MUIA_Gauge_InfoText, buf);
+                /* Gauge kopiert MUIA_Gauge_InfoText NICHT, sondern merkt
+                 * sich den Zeiger und liest ihn bei jedem Neuzeichnen neu.
+                 * Ein Puffer auf dem Stapel ist dann laengst ueberschrieben:
+                 * die Zahl stand nur, solange die Seite beim Aktualisieren
+                 * sichtbar war, und verschwand beim ersten Seitenwechsel.
+                 * Der Text muss deshalb so lange leben wie das Objekt. */
+                value_text(u->e, u->info, sizeof(u->info));
+                set(u->ctl, MUIA_Gauge_InfoText, u->info);
                 set(u->ctl, MUIA_Gauge_Current, v);
                 break;
             }
@@ -729,6 +1014,92 @@ static void widgets_update(void)
     }
 }
 
+/* ------------------------------------------------------------------ */
+/* Unbekannte Werte                                                    */
+/* ------------------------------------------------------------------ */
+
+/* Home Assistant meldet "unknown", wenn ein Sensor noch nie etwas geliefert
+ * hat, und "unavailable", wenn das Geraet weg ist. Manche Integrationen
+ * schreiben auch "None" oder gar nichts. */
+static BOOL state_unknown(const struct Entity *e)
+{
+    const char *s = e->state;
+
+    return (BOOL)(s[0] == '\0' || stricmp(s, "unknown") == 0 ||
+                  stricmp(s, "unavailable") == 0 ||
+                  stricmp(s, "none") == 0);
+}
+
+/* Graut aus oder blendet aus, je nach Einstellung. Gesetzt wird nur, was
+ * sich geaendert hat: MUIA_ShowMe loest jedes Mal ein neues Layout des
+ * ganzen Fensters aus, und das kostet auf einem 68030 sichtbar Zeit.
+ *
+ * Sind alle Zeilen eines Kastens ausgeblendet, verschwindet auch der Kasten -
+ * ein leerer Rahmen mit Ueberschrift saehe aus wie ein Fehler. Zeilen ohne
+ * Geraet (Beschriftungen, verschwundene Geraete) halten ihn sichtbar.
+ *
+ * MUIA_ShowMe allein genuegt unter MUI 3.8 nicht: auf der sichtbaren Seite
+ * blieb danach ein zusammengefallenes Layout stehen, bis man die Seite
+ * wechselte. Deshalb wird jede Aenderung der Sichtbarkeit in
+ * InitChange/ExitChange geklammert - ausser der Aufrufer steht schon darin
+ * (in_change, beim Neuaufbau). */
+static BOOL row_hide(const struct WUI *u)
+{
+    return (BOOL)(u->e && state_unknown(u->e) &&
+                  g_prefs.unknown == AH_UNK_HIDE);
+}
+
+static void unknown_apply(BOOL in_change)
+{
+    int i = 0;
+    BOOL change = FALSE;
+
+    if (!in_change) {
+        for (i = 0; i < g_wui_count; i++) {
+            if (g_wui[i].row && row_hide(&g_wui[i]) != g_wui[i].hidden) {
+                change = TRUE;
+                break;
+            }
+        }
+        if (change) {
+            DoMethod(grp_pages, MUIM_Group_InitChange);
+        }
+        i = 0;
+    }
+
+    while (i < g_wui_count) {
+        Object *box = g_wui[i].box;
+        int start = i;
+        BOOL any = (BOOL)(g_wui[i].box_fixed > 0);
+
+        for (; i < g_wui_count && g_wui[i].box == box; i++) {
+            struct WUI *u = &g_wui[i];
+            BOOL unk  = (BOOL)(u->e && state_unknown(u->e));
+            BOOL dim  = (BOOL)(unk && g_prefs.unknown == AH_UNK_DIM);
+            BOOL hide = row_hide(u);
+
+            if (u->row && dim != u->dimmed) {
+                set(u->row, MUIA_Disabled, dim);
+                u->dimmed = dim;
+            }
+            if (u->row && hide != u->hidden) {
+                set(u->row, MUIA_ShowMe, !hide);
+                u->hidden = hide;
+            }
+            if (!u->hidden) {
+                any = TRUE;
+            }
+        }
+        if (box && (BOOL)!any != g_wui[start].box_hidden) {
+            set(box, MUIA_ShowMe, any);
+            g_wui[start].box_hidden = (BOOL)!any;
+        }
+    }
+    if (change) {
+        DoMethod(grp_pages, MUIM_Group_ExitChange);
+    }
+}
+
 /* Fehlschlaege in Folge. Ist Home Assistant nicht erreichbar, hat es keinen
  * Sinn, weiter im eingestellten Takt dagegen zu laufen: jeder Versuch kostet
  * jetzt bis zu fuenf Sekunden Zeitgrenze, in denen die Oberflaeche steht.
@@ -747,6 +1118,86 @@ static int poll_secs(void)
     return g_prefs.poll;
 }
 
+/* Diagramme: je eines eine WebSocket-Anfrage, auf dem TF536 rund eine
+ * halbe Sekunde. Die Werte aendern sich nur langsam - deshalb nicht im Takt
+ * der Zustaende, sondern beim Aufbau, bei "Aktualisieren" und alle zehn
+ * Minuten. */
+#define CHART_REFRESH_SECS 600
+static long g_chart_age = 0;
+
+/* Zwischenspeicher: der Editor baut bei jeder Aenderung alle Seiten neu,
+ * und damit neue Diagrammobjekte. Die bekommen ihre Werte von hier, statt
+ * jedes Mal Home Assistant zu fragen. */
+#define CHART_CACHE 16
+struct ChartCache {
+    char id[ID_LEN];
+    int  period, count, n;
+    struct StatPoint pt[CHART_MAX];
+};
+static struct ChartCache g_cc[CHART_CACHE];
+static int g_cc_count = 0;
+
+static void chart_cache_clear(void)
+{
+    g_cc_count = 0;
+}
+
+static struct ChartCache *chart_cache_get(const struct Widget *w, BOOL fetch)
+{
+    struct ChartCache *c = NULL;
+    int i;
+
+    for (i = 0; i < g_cc_count; i++) {
+        if (g_cc[i].period == (int)w->min && g_cc[i].count == (int)w->max &&
+                strcmp(g_cc[i].id, w->id) == 0) {
+            c = &g_cc[i];
+            break;
+        }
+    }
+    if (c && !fetch) {
+        return c;
+    }
+    if (!c) {
+        /* Voll? Dann den aeltesten Eintrag wiederverwenden. */
+        if (g_cc_count < CHART_CACHE) {
+            c = &g_cc[g_cc_count++];
+        } else {
+            memmove(&g_cc[0], &g_cc[1], (CHART_CACHE - 1) * sizeof(g_cc[0]));
+            c = &g_cc[CHART_CACHE - 1];
+        }
+        strcpy(c->id, w->id);
+        c->period = (int)w->min;
+        c->count  = (int)w->max;
+        c->n = 0;
+    }
+    if (ha_statistics(&g_prefs, w->id, c->period, c->pt, c->count,
+                      &c->n) != AH_OK) {
+        say(txt_status, ha_last_error());
+        c->n = 0;
+    }
+    return c;
+}
+
+/* fetch = TRUE holt alles neu, sonst nur, was noch nicht im Speicher ist. */
+static void charts_refresh(BOOL fetch)
+{
+    int i;
+
+    if (fetch) {
+        g_chart_age = 0;
+    }
+    for (i = 0; i < g_wui_count; i++) {
+        struct WUI *u = &g_wui[i];
+        struct ChartCache *c;
+
+        if (u->w->kind != WK_CHART || !u->ctl) {
+            continue;
+        }
+        c = chart_cache_get(u->w, fetch);
+        chart_set(u->ctl, c->pt, c->n, c->period, u->e ? u->e->unit : "");
+    }
+}
+
 static void refresh_states(void)
 {
     if (states_refresh(&g_prefs, &g_cat) != AH_OK) {
@@ -758,6 +1209,7 @@ static void refresh_states(void)
     }
     g_net_fails = 0;
     widgets_update();
+    unknown_apply(FALSE);
 }
 
 static void status_summary(void)
@@ -806,35 +1258,73 @@ static void sel_count_show(void)
          (long)catalog_selected_count(&g_cat), (long)g_cat.count);
 }
 
+/* Passt ein Eintrag zum Suchbegriff? Gesucht wird in Raum, Name und ID. */
+static BOOL sel_matches(const struct Entity *e, const char *find)
+{
+    return (BOOL)(text_contains(e->name, find) ||
+                  text_contains(e->area, find) ||
+                  text_contains(e->id, find));
+}
+
+static const char *sel_find(void)
+{
+    char *s = NULL;
+
+    get(str_selfind, MUIA_String_Contents, &s);
+    return s ? s : "";
+}
+
 static void sel_fill(void)
 {
+    const char *find = sel_find();
     int i;
 
     if (!sel_ensure(g_cat.count)) {
         say(txt_sel, GetStr(MSG_ERR_NOMEM));
         return;
     }
+    if (g_cat.count > g_selmap_cap) {
+        free(g_selmap);
+        g_selmap = malloc((size_t)g_cat.count * sizeof(int));
+        g_selmap_cap = g_selmap ? g_cat.count : 0;
+        if (!g_selmap) {
+            say(txt_sel, GetStr(MSG_ERR_NOMEM));
+            return;
+        }
+    }
 
     set(lst_sel, MUIA_NList_Quiet, TRUE);
     DoMethod(lst_sel, MUIM_NList_Clear);
+    g_selrows = 0;
     for (i = 0; i < g_cat.count; i++) {
         struct Entity *e = &g_cat.list[i];
 
+        if (*find && !sel_matches(e, find)) {
+            continue;
+        }
         sprintf(SELLABEL(i), "\33o[%ld] %-14s %s",
                 (long)(e->selected ? IMG_CHECK_ON : IMG_CHECK_OFF),
                 e->area, e->name);
         DoMethod(lst_sel, MUIM_NList_InsertSingle, SELLABEL(i),
                  MUIV_NList_Insert_Bottom);
+        g_selmap[g_selrows++] = i;
     }
     set(lst_sel, MUIA_NList_Quiet, FALSE);
     sel_count_show();
 }
 
+/* Alle / Keine / Vorschlag wirken nur auf das, was die Liste gerade zeigt.
+ * Mit Suchbegriff "grid" heisst "Alle" also: alle mit grid - nicht
+ * versehentlich den ganzen Katalog. */
 static void sel_set_all(int mode)
 {
+    const char *find = sel_find();
     int i;
 
     for (i = 0; i < g_cat.count; i++) {
+        if (*find && !sel_matches(&g_cat.list[i], find)) {
+            continue;
+        }
         if (mode == 0) {
             g_cat.list[i].selected = FALSE;
         } else if (mode == 1) {
@@ -851,9 +1341,10 @@ static void sel_click(void)
     LONG pos = -1;
 
     get(lst_sel, MUIA_NList_Active, &pos);
-    if (pos < 0 || pos >= g_cat.count) {
+    if (pos < 0 || pos >= g_selrows) {
         return;
     }
+    pos = g_selmap[pos];            /* Zeile -> Katalogeintrag */
     g_cat.list[pos].selected = (BOOL)!g_cat.list[pos].selected;
     SELLABEL(pos)[3] =
         (char)('0' + (g_cat.list[pos].selected ? IMG_CHECK_ON
@@ -875,6 +1366,7 @@ static void prefs_to_gui(void)
     set(str_token, MUIA_String_Contents, g_prefs.token);
     sprintf(buf, "%d", g_prefs.poll);
     set(str_poll, MUIA_String_Contents, buf);
+    set(cyc_unknown, MUIA_Cycle_Active, (LONG)g_prefs.unknown);
 }
 
 static void prefs_from_gui(void)
@@ -918,6 +1410,12 @@ static void prefs_from_gui(void)
     }
     if (g_prefs.poll < 2) {
         g_prefs.poll = 2;
+    }
+    {
+        LONG unk = AH_UNK_DIM;
+
+        get(cyc_unknown, MUIA_Cycle_Active, &unk);
+        g_prefs.unknown = (int)unk;
     }
 }
 
@@ -1058,6 +1556,21 @@ static void timer_close(void)
 
 /* ------------------------------------------------------------------ */
 
+/* Die Beschriftungen im Einstellungsfenster, rechtsbuendig (das macht
+ * MUIO_Label von selbst) und mit Doppelpunkt. Der steht nicht in den
+ * Katalogen, damit sich an den Uebersetzungen nichts aendert. MUIO_Label
+ * kopiert den Text, der Puffer darf also auf dem Stapel liegen. */
+static Object *colon_label(int msg)
+{
+    char buf[80];
+
+    sprintf(buf, "%.76s:", GetStr(msg));
+    return MUI_MakeObject(MUIO_Label, buf, 0);
+}
+
+/* Muss statisch sein und mit NULL enden - siehe KIND_TEXT in edit.c. */
+static const char *UNK_TEXT[4];
+
 static Object *button(const char *label)
 {
     return MUI_MakeObject(MUIO_Button, (char *)label);
@@ -1067,9 +1580,11 @@ static Object *button(const char *label)
 static void reload_all(BOOL fetch)
 {
     int found = 0;
+    int page = main_page();
 
     if (fetch) {
         say(txt_status, GetStr(MSG_STATUS_QUERYING));
+        chart_cache_clear();        /* "Aktualisieren" holt auch Diagramme neu */
         selection_remember();
         {
             int before = g_cat.count;
@@ -1097,12 +1612,15 @@ static void reload_all(BOOL fetch)
     }
     dash_mark_used(&g_dash, &g_cat);
 
+    /* "Aktualisieren" bleibt auf der Seite, auf der man war. */
     sidebar_fill();
     pages_build();
+    show_page(page);
+    editor_refresh(page);
     status_summary();
 }
 
-int main(void)
+static int app_main(void)
 {
     ULONG sigs = 0;
     ULONG id;
@@ -1147,6 +1665,16 @@ int main(void)
     dash_init(&g_dash);
     g_have_prefs = (BOOL)(prefs_load(&g_prefs) == AH_OK);
 
+    UNK_TEXT[AH_UNK_SHOW] = GetStr(MSG_UNK_SHOW);
+    UNK_TEXT[AH_UNK_DIM]  = GetStr(MSG_UNK_DIM);
+    UNK_TEXT[AH_UNK_HIDE] = GetStr(MSG_UNK_HIDE);
+    UNK_TEXT[3] = NULL;
+
+    /* Vor dem Fenster: build_widget legt Diagramme erst beim Laden der
+     * Dashboards an, aber die Klasse muss dann schon da sein. Fehlt sie,
+     * zeigen Diagrammzeilen nur ihre Beschriftung - der Rest laeuft. */
+    chart_class_open();
+
     app = MUI_NewObject(MUIC_Application,
         MUIA_Application_Title,       "AmiHomeassist",
         MUIA_Application_Version,     (char *)VERSTAG,
@@ -1190,6 +1718,10 @@ int main(void)
                              * Schwarz. */
                             MUIA_Group_Child, MUI_NewObject(MUIC_Text,
                                 MUIA_Text_Contents, "\33c\33b\33P[1]AmiHomeassist",
+                                TAG_DONE),
+                            MUIA_Group_Child, MUI_NewObject(MUIC_Text,
+                                MUIA_Text_Contents, "\33c\33P[1]v" AH_VERSION,
+                                MUIA_Font,          MUIV_Font_Tiny,
                                 TAG_DONE),
                             TAG_DONE),
 
@@ -1241,6 +1773,15 @@ int main(void)
                     MUIA_Text_Contents,
                     (char *)GetStr(MSG_HINT_SELECT),
                     TAG_DONE),
+                MUIA_Group_Child, MUI_NewObject(MUIC_Group,
+                    MUIA_Group_Horiz, TRUE,
+                    MUIA_Group_Child, colon_label(MSG_ED_LBL_FIND),
+                    MUIA_Group_Child, str_selfind = MUI_NewObject(MUIC_String,
+                        MUIA_String_MaxLen, 40,
+                        MUIA_Frame,         MUIV_Frame_String,
+                        MUIA_CycleChain,    1,
+                        TAG_DONE),
+                    TAG_DONE),
                 MUIA_Group_Child, MUI_NewObject(MUIC_NListview,
                     MUIA_NListview_NList, lst_sel = MUI_NewObject(MUIC_NList,
                         MUIA_NList_Input, TRUE,
@@ -1269,25 +1810,25 @@ int main(void)
             MUIA_Window_RootObject, MUI_NewObject(MUIC_Group,
                 MUIA_Group_Child, MUI_NewObject(MUIC_Group,
                     MUIA_Group_Columns, 2,
-                    MUIA_Group_Child, MUI_MakeObject(MUIO_Label,
-                                          (char *)GetStr(MSG_LBL_ADDRESS)),
+                    MUIA_Group_Child, colon_label(MSG_LBL_ADDRESS),
                     MUIA_Group_Child, str_host = MUI_NewObject(MUIC_String,
                         MUIA_String_MaxLen, 160,
                         MUIA_Frame,         MUIV_Frame_String,
                         TAG_DONE),
-                    MUIA_Group_Child, MUI_MakeObject(MUIO_Label,
-                                          (char *)GetStr(MSG_LBL_TOKEN)),
+                    MUIA_Group_Child, colon_label(MSG_LBL_TOKEN),
                     MUIA_Group_Child, str_token = MUI_NewObject(MUIC_String,
                         MUIA_String_MaxLen, 600,
                         MUIA_Frame,         MUIV_Frame_String,
                         TAG_DONE),
-                    MUIA_Group_Child, MUI_MakeObject(MUIO_Label,
-                                          (char *)GetStr(MSG_LBL_INTERVAL)),
+                    MUIA_Group_Child, colon_label(MSG_LBL_INTERVAL),
                     MUIA_Group_Child, str_poll = MUI_NewObject(MUIC_String,
                         MUIA_String_MaxLen, 8,
                         MUIA_String_Accept, "0123456789",
                         MUIA_Frame,         MUIV_Frame_String,
                         TAG_DONE),
+                    MUIA_Group_Child, colon_label(MSG_LBL_UNKNOWN),
+                    MUIA_Group_Child, cyc_unknown =
+                        MUI_MakeObject(MUIO_Cycle, NULL, (char **)UNK_TEXT),
                     TAG_DONE),
                 MUIA_Group_Child, txt_prefs = MUI_NewObject(MUIC_Text,
                     MUIA_Text_Contents,
@@ -1323,7 +1864,7 @@ int main(void)
              app, 2, MUIM_Application_ReturnID, ID_PAGE);
 
     DoMethod(win_sel, MUIM_Notify, MUIA_Window_CloseRequest, TRUE,
-             win_sel, 3, MUIM_Set, MUIA_Window_Open, FALSE);
+             app, 2, MUIM_Application_ReturnID, ID_SEL_CLOSE);
     DoMethod(lst_sel, MUIM_Notify, MUIA_NList_EntryClick, MUIV_EveryTime,
              app, 2, MUIM_Application_ReturnID, ID_SEL_CLICK);
     DoMethod(bt_all, MUIM_Notify, MUIA_Pressed, FALSE,
@@ -1334,6 +1875,8 @@ int main(void)
              app, 2, MUIM_Application_ReturnID, ID_SEL_SUGGEST);
     DoMethod(bt_apply, MUIM_Notify, MUIA_Pressed, FALSE,
              app, 2, MUIM_Application_ReturnID, ID_SEL_APPLY);
+    DoMethod(str_selfind, MUIM_Notify, MUIA_String_Contents, MUIV_EveryTime,
+             app, 2, MUIM_Application_ReturnID, ID_SEL_FIND);
 
     DoMethod(win_prefs, MUIM_Notify, MUIA_Window_CloseRequest, TRUE,
              win_prefs, 3, MUIM_Set, MUIA_Window_Open, FALSE);
@@ -1345,13 +1888,18 @@ int main(void)
     editor_build(app, &g_dash, &g_cat);
 
     prefs_to_gui();
+    /* Erst Daten holen und Seiten bauen, DANN das Fenster oeffnen. Offen
+     * und leer hatte es seine Mindestgroesse; kamen die Seiten hinein,
+     * wuchs es - und MUI 3.8 waechst ein Fenster, indem es es schliesst
+     * und neu oeffnet. Das sah aus wie ein Absturz beim Start. */
+    if (g_have_prefs) {
+        reload_all(TRUE);
+    }
     set(win, MUIA_Window_Open, TRUE);
 
     if (!g_have_prefs) {
         say(txt_status, ha_last_error());
         set(win_prefs, MUIA_Window_Open, TRUE);
-    } else {
-        reload_all(TRUE);
     }
 
     if (timer_open()) {
@@ -1365,14 +1913,24 @@ int main(void)
             BOOL changed = FALSE;
 
             if (editor_handle(id, &changed)) {
+                int ep = editor_page();
+
                 if (changed) {
                     /* Der Editor hat das Modell veraendert - Seitenleiste und
                      * Seiten muessen neu entstehen, und der Sparbetrieb muss
                      * wissen, was jetzt gebraucht wird. */
+                    int keep = main_page();
+
                     dash_mark_used(&g_dash, &g_cat);
                     sidebar_fill();
                     pages_build();
+                    show_page(ep >= 0 ? ep : keep);
                     status_summary();
+                } else if (ep >= 0 && ep != main_page()) {
+                    /* Das Hauptfenster zeigt, was man im Editor gewaehlt
+                     * hat - so steht man nach "Schliessen" dort, wo man
+                     * zuletzt gearbeitet hat. */
+                    show_page(ep);
                 }
                 if (sigs) {
                     sigs = Wait(sigs | SIGBREAKF_CTRL_C | g_tsig);
@@ -1485,6 +2043,8 @@ int main(void)
                 }
 
                 case ID_OPEN_SEL:
+                    SetAttrs(str_selfind, MUIA_NoNotify, TRUE,
+                             MUIA_String_Contents, (ULONG)"", TAG_DONE);
                     sel_fill();
                     set(win_sel, MUIA_Window_Open, TRUE);
                     break;
@@ -1492,21 +2052,50 @@ int main(void)
                 case ID_SEL_ALL:     sel_set_all(1); break;
                 case ID_SEL_NONE:    sel_set_all(0); break;
                 case ID_SEL_SUGGEST: sel_set_all(2); break;
-                case ID_SEL_APPLY:
+                case ID_SEL_FIND:    sel_fill(); break;
+
+                case ID_SEL_CLOSE:
+                    /* Ohne "Uebernehmen" geschlossen: die Haekchen gelten
+                     * nicht. Die Abfrage im Takt holt, was markiert ist -
+                     * blieben hier 763 Haekchen stehen, holte sie 763. */
+                    dash_mark_used(&g_dash, &g_cat);
+                    set(win_sel, MUIA_Window_Open, FALSE);
+                    break;
+
+                case ID_SEL_APPLY: {
+                    int n = catalog_selected_count(&g_cat);
+                    int added = 0, removed = 0;
+                    int keep = main_page();
+
+                    /* Ab 100 Geraeten wird jede Abfrage im Takt gross -
+                     * ein A500 kommt da nicht mehr mit. Nicht verbieten,
+                     * aber nachfragen: "Alle" ist schnell gedrueckt. */
+                    if (n > SEL_WARN &&
+                            MUI_Request(app, win_sel, 0, "AmiHomeassist",
+                                        (char *)GetStr(MSG_ASK_MANY_BT),
+                                        (char *)GetStr(MSG_ASK_MANY),
+                                        (long)n) != 1) {
+                        break;
+                    }
                     import_save(&g_cat);
                     selection_remember();
-                    /* Aus der neuen Auswahl frische Seiten bauen. */
-                    dash_generate(&g_dash, &g_cat);
+                    /* Ergaenzen statt neu erzeugen - die Seiten, wie man
+                     * sie im Editor angeordnet hat, bleiben. */
+                    dash_merge(&g_dash, &g_cat, &added, &removed);
                     dash_save(&g_dash);
                     dash_mark_used(&g_dash, &g_cat);
                     sidebar_fill();
                     pages_build();
-                    status_summary();
+                    show_page(keep);
+                    editor_refresh(keep);
+                    sayf(txt_status, GetStr(MSG_STATUS_MERGED),
+                         (long)added, (long)removed);
                     set(win_sel, MUIA_Window_Open, FALSE);
                     break;
+                }
 
                 case ID_OPEN_EDIT:
-                    editor_open();
+                    editor_open(main_page());
                     break;
 
                 case ID_OPEN_PREFS:
@@ -1542,6 +2131,10 @@ int main(void)
                 get(win_sel, MUIA_Window_Open, &selopen);
                 if (g_have_prefs && !selopen) {
                     refresh_states();
+                    g_chart_age += poll_secs();
+                    if (g_chart_age >= CHART_REFRESH_SECS) {
+                        charts_refresh(TRUE);
+                    }
                 }
                 timer_start(poll_secs());
             }
@@ -1554,6 +2147,25 @@ int main(void)
     timer_close();
     set(win, MUIA_Window_Open, FALSE);
     MUI_DisposeObject(app);
+    chart_class_close();            /* erst nach dem letzten Objekt */
+
+    /* Die Bilder der Listen gehoeren uns, nicht NList (MUIM_NList_UseImage:
+     * "must be valid until the NList object is disposed"). Die Listen sind
+     * mit app gegangen - jetzt duerfen die Bilder hinterher. */
+    {
+        int i;
+
+        for (i = 0; i < MDI_COUNT; i++) {
+            if (img_side[i]) {
+                MUI_DisposeObject(img_side[i]);
+            }
+        }
+        for (i = 0; i < IMG_COUNT; i++) {
+            if (img_sel[i]) {
+                MUI_DisposeObject(img_sel[i]);
+            }
+        }
+    }
     dash_free(&g_dash);
     catalog_free(&g_cat);
 #ifndef __AROS__
@@ -1562,4 +2174,10 @@ int main(void)
 #endif
     locale_close();
     return 0;
+}
+
+/* Eigener Stapel - siehe stack.c, warum nicht mehr ueber libnix. */
+int main(void)
+{
+    return run_with_stack(app_main, 65536);
 }
