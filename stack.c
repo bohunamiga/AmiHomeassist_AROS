@@ -21,6 +21,9 @@
 #include <exec/types.h>
 #include <exec/tasks.h>
 #include <exec/memory.h>
+#ifdef __AROS__
+#define __AROS_GIMME_DEPRECATED_STACKSWAP__
+#endif
 #include <proto/exec.h>
 
 #include "stack.h"

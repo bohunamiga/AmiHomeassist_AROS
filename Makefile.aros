@@ -44,8 +44,9 @@ LDFLAGS = $(if $(AROS_SYSROOT),--sysroot=$(AROS_SYSROOT))
 # RawDoFmt-sprintf-Problem, zweitens liefert der AROS-MUI (Zune)
 # DoMethod()/set()/get() ueber seine eigenen Header.
 
-GUI_OBJS = amiha.o dash.o edit.o gui.o icons.o icons_mdi.o logo.o amiloc.o
-CLI_OBJS = amiha.o dash.o cli.o amiloc.o
+GUI_OBJS = amiha.o dash.o edit.o gui.o icons.o icons_mdi.o logo.o \
+           amiloc.o chart.o stack.o
+CLI_OBJS = amiha.o dash.o cli.o amiloc.o stack.o
 
 all: locale_strings.h AmiHomeassist AmiHomeassistCLI
 

@@ -279,11 +279,17 @@ static void chart_draw(struct IClass *cl, Object *obj)
 }
 
 /* Register fuer den Dispatcher: MUI ruft ihn mit a0 = Klasse, a2 = Objekt,
- * a1 = Nachricht - wie jeden BOOPSI-Dispatcher. */
+ * a1 = Nachricht - wie jeden BOOPSI-Dispatcher. Auf AROS besorgt das die
+ * BOOPSI_DISPATCHER-Klammer (SAVEDS + Registeraufruf) portabel. */
+#ifdef __AROS__
+static BOOPSI_DISPATCHER(IPTR, chart_dispatch, cl, obj, msg)
+{
+#else
 static ULONG chart_dispatch(struct IClass *cl __asm("a0"),
                             Object *obj __asm("a2"),
                             Msg msg __asm("a1"))
 {
+#endif
     switch (msg->MethodID) {
         case OM_NEW: {
             Object *o = (Object *)DoSuperMethodA(cl, obj, msg);
@@ -293,7 +299,11 @@ static ULONG chart_dispatch(struct IClass *cl __asm("a0"),
 
                 memset(d, 0, sizeof(*d));
             }
+            #ifdef __AROS__
+            return (IPTR)o;
+#else
             return (ULONG)o;
+#endif
         }
 
         case MUIM_AskMinMax: {
@@ -334,7 +344,12 @@ static ULONG chart_dispatch(struct IClass *cl __asm("a0"),
         }
     }
     return DoSuperMethodA(cl, obj, msg);
+#ifdef __AROS__
 }
+BOOPSI_DISPATCHER_END
+#else
+}
+#endif
 
 BOOL chart_class_open(void)
 {
